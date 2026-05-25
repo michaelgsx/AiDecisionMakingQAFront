@@ -1,0 +1,116 @@
+# Deploy QA chat UI to Azure Static Web Apps resource: ai-rag-agentic-qa
+# Deployment token: Key Vault ai-rag-key, secret ai-rag-agentic-qa
+#
+# GitHub secrets: AZURE_CREDENTIALS, VITE_AGENT_API_BASE_URL, VITE_OPS_TOKEN (optional)
+
+name: Deploy QA frontend (ai-rag-agentic-qa)
+
+on:
+  workflow_dispatch:
+    inputs:
+      keyvault_name:
+        description: "Key Vault name"
+        required: false
+        type: string
+        default: ai-rag-key
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches: [main]
+
+env:
+  AZURE_KEYVAULT_NAME: ai-rag-key
+  KEYVAULT_SECRET_NAME: ai-rag-agentic-qa
+
+jobs:
+  build_and_deploy:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install and build
+        run: npm ci && npm run build
+        env:
+          VITE_AGENT_API_BASE_URL: ${{ secrets.VITE_AGENT_API_BASE_URL }}
+          VITE_OPS_TOKEN: ${{ secrets.VITE_OPS_TOKEN }}
+          VITE_USE_MOCK: ${{ secrets.VITE_USE_MOCK }}
+
+      - name: Azure CLI login
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+        run: |
+          set -euo pipefail
+          command -v jq >/dev/null
+          TID=$(jq -r .tenantId <<<"$AZURE_CREDENTIALS")
+          CID=$(jq -r .clientId <<<"$AZURE_CREDENTIALS")
+          SEC=$(jq -r .clientSecret <<<"$AZURE_CREDENTIALS")
+          az login --service-principal -u "$CID" -p "$SEC" --tenant "$TID" --allow-no-subscriptions
+
+      - name: Fetch SWA deployment token (ai-rag-agentic-qa)
+        run: |
+          set -euo pipefail
+          VAULT='${{ vars.AZURE_KEYVAULT_NAME }}'
+          if [ -z "$VAULT" ]; then VAULT='${{ secrets.AZURE_KEYVAULT_NAME }}'; fi
+          if [ -z "$VAULT" ] && [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VAULT='${{ github.event.inputs.keyvault_name }}'
+          fi
+          if [ -z "$VAULT" ]; then VAULT="${{ env.AZURE_KEYVAULT_NAME }}"; fi
+          SECRET_NAME='${{ vars.KEYVAULT_SECRET_NAME }}'
+          if [ -z "$SECRET_NAME" ]; then SECRET_NAME='${{ secrets.KEYVAULT_SECRET_NAME }}'; fi
+          if [ -z "$SECRET_NAME" ]; then SECRET_NAME="${{ env.KEYVAULT_SECRET_NAME }}"; fi
+          TOKEN=$(az keyvault secret show --vault-name "$VAULT" --name "$SECRET_NAME" --query value -o tsv)
+          if [ -z "$TOKEN" ]; then
+            echo "Empty secret $SECRET_NAME in vault $VAULT" >&2
+            exit 1
+          fi
+          echo "::add-mask::$TOKEN"
+          echo "SWA_DEPLOYMENT_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      - name: Deploy to Static Web App ai-rag-agentic-qa
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ env.SWA_DEPLOYMENT_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: dist
+          api_location: ""
+          output_location: ""
+          skip_app_build: true
+
+  close_pr_environment:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Azure CLI login
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+        run: |
+          set -euo pipefail
+          TID=$(jq -r .tenantId <<<"${{ secrets.AZURE_CREDENTIALS }}")
+          CID=$(jq -r .clientId <<<"${{ secrets.AZURE_CREDENTIALS }}")
+          SEC=$(jq -r .clientSecret <<<"${{ secrets.AZURE_CREDENTIALS }}")
+          az login --service-principal -u "$CID" -p "$SEC" --tenant "$TID" --allow-no-subscriptions
+
+      - name: Fetch SWA deployment token
+        run: |
+          set -euo pipefail
+          VAULT="${{ env.AZURE_KEYVAULT_NAME }}"
+          TOKEN=$(az keyvault secret show --vault-name "$VAULT" --name "${{ env.KEYVAULT_SECRET_NAME }}" --query value -o tsv)
+          echo "::add-mask::$TOKEN"
+          echo "SWA_DEPLOYMENT_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      - name: Close PR preview
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ env.SWA_DEPLOYMENT_TOKEN }}
+          action: close
