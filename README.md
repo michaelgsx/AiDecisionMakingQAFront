@@ -92,6 +92,8 @@ Open http://localhost:5174
 | `npm run dev` | Dev server (port 5174) |
 | `npm run build` | Production build → `dist/` |
 | `npm run preview` | Preview production build |
+| `npm test` | Unit tests (Vitest + Testing Library) |
+| `npm run test:watch` | Tests in watch mode |
 
 ## Project layout
 
