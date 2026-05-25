@@ -6,6 +6,20 @@ Backend: **[AiDecisionMakingAgenticAI](https://github.com/michaelgsx/AiDecisionM
 
 > **Synthetic data:** Example questions, demo answers, and evaluation rows are AI-generated for illustration only.
 
+## Screenshots
+
+### Chat tab
+
+Orchestrator Q&A: submit a question, poll until the DAG completes, thumbs feedback on answers.
+
+![Chat tab — Risk Control Q&A](docs/screenshots/chat-tab.png)
+
+### Evaluation tab
+
+Human review queue: filter by Pending / Accepted / Rejected, then **Accept** or **Reject** each Q&A pair.
+
+![Evaluation tab — human review](docs/screenshots/evaluation-tab.png)
+
 ## Features
 
 | Tab | Purpose |
