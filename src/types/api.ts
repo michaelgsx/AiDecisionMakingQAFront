@@ -24,6 +24,7 @@ export type RunStatusResponse = {
   answer?: string;
   error?: string;
   workflowJson?: string;
+  workflowMermaid?: string;
   steps: StepStatusDto[];
   waitingForHuman: boolean;
   pendingApprovals: HumanApprovalDto[];
@@ -89,4 +90,9 @@ export type EvaluationReviewRequest = {
   decision: "accept" | "reject";
   reviewerId?: string;
   comment?: string;
+};
+
+export type WorkflowDiagramResponse = {
+  format: string;
+  mermaid: string;
 };

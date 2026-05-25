@@ -127,6 +127,82 @@ main {
   color: var(--accent);
 }
 
+.workflow-panel {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(20, 26, 34, 0.75);
+}
+
+.workflow-panel summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.workflow-steps {
+  list-style: none;
+  margin: 0.5rem 0 0.65rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.workflow-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.workflow-step-key {
+  font-family: var(--mono);
+  color: var(--accent);
+}
+
+.workflow-step-status {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.workflow-step--completed .workflow-step-status {
+  color: var(--ok);
+}
+
+.workflow-step--running .workflow-step-status,
+.workflow-step--ready .workflow-step-status {
+  color: var(--accent);
+}
+
+.workflow-step--failed .workflow-step-status,
+.workflow-step--timed_out .workflow-step-status {
+  color: var(--danger);
+}
+
+.workflow-diagram {
+  overflow: auto;
+  padding: 0.25rem 0;
+}
+
+.workflow-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.workflow-diagram-error {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--danger);
+}
+
 .btn-ghost {
   background: transparent;
   border: 1px solid var(--border);

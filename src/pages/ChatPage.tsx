@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  getWorkflowDiagram,
   pollUntilComplete,
   submitFeedback,
   submitHumanResponse,
@@ -7,7 +8,8 @@ import {
 } from "../api/client";
 import { ChatMessage } from "../components/ChatMessage";
 import { HumanApprovalPanel } from "../components/HumanApprovalPanel";
-import type { ChatMessage as Msg, HumanApprovalDto } from "../types/api";
+import { WorkflowDiagram } from "../components/WorkflowDiagram";
+import type { ChatMessage as Msg, HumanApprovalDto, RunStatusResponse, StepStatusDto } from "../types/api";
 
 export function ChatPage() {
   const [conversationId, setConversationId] = useState<string | undefined>();
@@ -20,12 +22,37 @@ export function ChatPage() {
   const [humanLoading, setHumanLoading] = useState(false);
   const [feedbackLoadingId, setFeedbackLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [workflowMermaid, setWorkflowMermaid] = useState<string | null>(null);
+  const [workflowSteps, setWorkflowSteps] = useState<StepStatusDto[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading, runStatus]);
+
+  const applyWorkflowTick = (tick: RunStatusResponse) => {
+    setRunStatus(tick.status);
+    if (tick.workflowMermaid) {
+      setWorkflowMermaid(tick.workflowMermaid);
+    }
+    if (tick.steps.length > 0) {
+      setWorkflowSteps(tick.steps);
+    }
+  };
+
+  const ensureWorkflowDiagram = async (runId: string, tick: RunStatusResponse) => {
+    if (tick.workflowMermaid) {
+      setWorkflowMermaid(tick.workflowMermaid);
+      return;
+    }
+    try {
+      const mermaid = await getWorkflowDiagram(runId);
+      if (mermaid) setWorkflowMermaid(mermaid);
+    } catch {
+      /* diagram is optional */
+    }
+  };
 
   const send = useCallback(async () => {
     const text = input.trim();
@@ -39,6 +66,8 @@ export function ChatPage() {
     setRunStatus("PENDING");
     setPendingApproval(null);
     setActiveRunId(null);
+    setWorkflowMermaid(null);
+    setWorkflowSteps([]);
 
     try {
       const ask = await submitQuestion({
@@ -49,13 +78,14 @@ export function ChatPage() {
       setActiveRunId(ask.runId);
 
       const final = await pollUntilComplete(ask.runId, (tick) => {
-        setRunStatus(tick.status);
+        applyWorkflowTick(tick);
         if (tick.waitingForHuman && tick.pendingApprovals.length > 0) {
           setPendingApproval(tick.pendingApprovals[0]);
         } else {
           setPendingApproval(null);
         }
       });
+      await ensureWorkflowDiagram(ask.runId, final);
 
       if (final.waitingForHuman) {
         setLoading(false);
@@ -126,7 +156,7 @@ export function ChatPage() {
         decision,
       });
       setPendingApproval(null);
-      setRunStatus(updated.status);
+      applyWorkflowTick(updated);
       if (updated.waitingForHuman && updated.pendingApprovals.length > 0) {
         setPendingApproval(updated.pendingApprovals[0]);
         return;
@@ -150,11 +180,12 @@ export function ChatPage() {
         return;
       }
       const final = await pollUntilComplete(activeRunId, (tick) => {
-        setRunStatus(tick.status);
+        applyWorkflowTick(tick);
         if (tick.waitingForHuman && tick.pendingApprovals.length > 0) {
           setPendingApproval(tick.pendingApprovals[0]);
         }
       });
+      await ensureWorkflowDiagram(activeRunId, final);
       if (final.status === "FAILED") {
         throw new Error(final.error ?? "Orchestrator run failed");
       }
@@ -183,6 +214,8 @@ export function ChatPage() {
     setRunStatus(null);
     setPendingApproval(null);
     setActiveRunId(null);
+    setWorkflowMermaid(null);
+    setWorkflowSteps([]);
   };
 
   return (
@@ -200,6 +233,10 @@ export function ChatPage() {
         <p className="chat-status">
           Orchestrator: {pendingApproval ? "waiting for your approval" : runStatus}
         </p>
+      )}
+
+      {(workflowMermaid || workflowSteps.length > 0) && (
+        <WorkflowDiagram source={workflowMermaid} steps={workflowSteps} />
       )}
 
       {pendingApproval && (

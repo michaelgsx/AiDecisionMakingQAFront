@@ -9,7 +9,17 @@ import type {
   HumanResponseRequest,
   EvaluationDto,
   RunStatusResponse,
+  WorkflowDiagramResponse,
 } from "../types/api";
+
+const MOCK_WORKFLOW_MERMAID = `flowchart TD
+  s1["s1<br/>data_acquisition<br/>COMPLETED"]
+  s2["s2<br/>ai_decision_rag<br/>COMPLETED"]
+  s3["s3<br/>llm_answer<br/>COMPLETED"]
+  s1 --> s2
+  s2 --> s3
+  classDef wf_completed fill:#d1e7dd,stroke:#198754,color:#0f5132
+  class s1,s2,s3 wf_completed`;
 
 function baseUrl(): string {
   const u = import.meta.env.VITE_AGENT_API_BASE_URL?.trim();
@@ -61,6 +71,7 @@ export async function getRunStatus(runId: string): Promise<RunStatusResponse> {
       status: "COMPLETED",
       question: "mock",
       answer: "(Mock) Orchestrator completed with a demo DAG: data_acquisition → ai_decision_rag → llm_answer.",
+      workflowMermaid: MOCK_WORKFLOW_MERMAID,
       steps: [
         { stepId: "1", stepKey: "s1", toolName: "data_acquisition", status: "COMPLETED", attemptCount: 1 },
         { stepId: "2", stepKey: "s2", toolName: "ai_decision_rag", status: "COMPLETED", attemptCount: 1 },
@@ -76,6 +87,20 @@ export async function getRunStatus(runId: string): Promise<RunStatusResponse> {
   const data = await parseJson<RunStatusResponse & { message?: string }>(res);
   if (!res.ok) throw new Error(data.message ?? `HTTP ${res.status}`);
   return data;
+}
+
+export async function getWorkflowDiagram(runId: string): Promise<string | null> {
+  const root = baseUrl();
+  if (!root && useMock()) {
+    await delay(100);
+    return MOCK_WORKFLOW_MERMAID;
+  }
+  if (!root) throw new Error("Set VITE_AGENT_API_BASE_URL or VITE_USE_MOCK=true");
+
+  const res = await fetch(`${root}/agent/runs/${runId}/workflow-diagram`, { headers: opsHeaders() });
+  const data = await parseJson<WorkflowDiagramResponse & { message?: string }>(res);
+  if (!res.ok) throw new Error(data.message ?? `HTTP ${res.status}`);
+  return data.mermaid ?? null;
 }
 
 export async function pollUntilComplete(

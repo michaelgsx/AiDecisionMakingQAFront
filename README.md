@@ -24,7 +24,7 @@ Human review queue: filter by Pending / Accepted / Rejected, then **Accept** or 
 
 | Tab | Purpose |
 |-----|---------|
-| **Chat** | Submit questions → orchestrator plans a DAG → poll until complete |
+| **Chat** | Submit questions → orchestrator plans a DAG → poll until complete; **workflow diagram** (Mermaid) updates live |
 | **Evaluation** | Human review queue: list Q&A pairs, **Accept** / **Reject** for further review |
 
 Additional behaviour:
@@ -45,7 +45,7 @@ sequenceDiagram
   API-->>UI: { runId, pollPath }
   loop Poll every 500ms
     UI->>API: GET /agent/runs/{runId}
-    API-->>UI: status, steps, pendingApprovals?
+    API-->>UI: status, steps, workflowMermaid, pendingApprovals?
   end
   UI->>UI: Show answer or human approval UI
 ```
@@ -101,7 +101,7 @@ src/
     ChatPage.tsx          # Orchestrator ask + poll + feedback
     EvaluationPage.tsx    # Human review queue
   api/client.ts           # API client (ask, poll, evaluations, feedback)
-  components/             # ChatMessage, HumanApprovalPanel, FeedbackBar
+  components/             # ChatMessage, HumanApprovalPanel, WorkflowDiagram, FeedbackBar
 ```
 
 ## Azure deploy
