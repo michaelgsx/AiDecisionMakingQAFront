@@ -1,8 +1,12 @@
 # Azure Static Web Apps: ai-rag-agentic-qa (yellow-island-0fefe051e)
 # Pre-build in GitHub Actions, then upload dist/ (skip Oryx app build).
 #
-# Secrets: AZURE_STATIC_WEB_APPS_API_TOKEN_YELLOW_ISLAND_0FEFE051E (from SWA portal),
-#          VITE_AGENT_API_BASE_URL, VITE_OPS_TOKEN (optional)
+# Secrets:
+#   AZURE_CREDENTIALS  JSON { tenantId, clientId, clientSecret, subscriptionId }
+#   VITE_AGENT_API_BASE_URL
+#   VITE_OPS_TOKEN (optional)
+#
+# Deployment token is fetched at runtime (not stored in GitHub) so api key resets do not break deploys.
 
 name: Azure Static Web Apps CI/CD
 
@@ -14,6 +18,12 @@ on:
     types: [opened, synchronize, reopened, closed]
     branches:
       - v1
+
+env:
+  AZURE_STATIC_WEB_APP_NAME: ai-rag-agentic-qa
+  AZURE_RESOURCE_GROUP: ai-rag-rg-1
+  AZURE_KEYVAULT_NAME: ai-rag-key
+  KEYVAULT_SECRET_NAME: ai-rag-agentic-qa
 
 jobs:
   build_and_deploy_job:
@@ -38,10 +48,52 @@ jobs:
           VITE_OPS_TOKEN: ${{ secrets.VITE_OPS_TOKEN }}
           VITE_USE_MOCK: ${{ secrets.VITE_USE_MOCK }}
 
+      - name: Azure CLI login
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+        run: |
+          set -euo pipefail
+          command -v jq >/dev/null
+          TID=$(jq -r .tenantId <<<"$AZURE_CREDENTIALS")
+          CID=$(jq -r .clientId <<<"$AZURE_CREDENTIALS")
+          SEC=$(jq -r .clientSecret <<<"$AZURE_CREDENTIALS")
+          SUB=$(jq -r .subscriptionId <<<"$AZURE_CREDENTIALS")
+          if [ -z "$TID" ] || [ "$TID" = "null" ] || [ -z "$CID" ] || [ "$CID" = "null" ] || [ -z "$SEC" ] || [ "$SEC" = "null" ]; then
+            echo "AZURE_CREDENTIALS must be JSON with tenantId, clientId, clientSecret." >&2
+            exit 1
+          fi
+          az login --service-principal -u "$CID" -p "$SEC" --tenant "$TID"
+          if [ -n "$SUB" ] && [ "$SUB" != "null" ]; then
+            az account set --subscription "$SUB"
+          fi
+
+      - name: Fetch SWA deployment token
+        run: |
+          set -euo pipefail
+          SWA='${{ env.AZURE_STATIC_WEB_APP_NAME }}'
+          RG='${{ env.AZURE_RESOURCE_GROUP }}'
+          TOKEN=""
+          if TOKEN=$(az staticwebapp secrets list --name "$SWA" --resource-group "$RG" --query properties.apiKey -o tsv 2>/dev/null); then
+            :
+          fi
+          if [ -z "$TOKEN" ]; then
+            VAULT='${{ vars.AZURE_KEYVAULT_NAME }}'
+            if [ -z "$VAULT" ]; then VAULT='${{ secrets.AZURE_KEYVAULT_NAME }}'; fi
+            if [ -z "$VAULT" ]; then VAULT='${{ env.AZURE_KEYVAULT_NAME }}'; fi
+            SECRET_NAME='${{ env.KEYVAULT_SECRET_NAME }}'
+            TOKEN=$(az keyvault secret show --vault-name "$VAULT" --name "$SECRET_NAME" --query value -o tsv)
+          fi
+          if [ -z "$TOKEN" ]; then
+            echo "Could not fetch SWA deployment token from Azure or Key Vault." >&2
+            exit 1
+          fi
+          echo "::add-mask::$TOKEN"
+          echo "SWA_DEPLOYMENT_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
       - name: Deploy to Static Web App
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_YELLOW_ISLAND_0FEFE051E }}
+          azure_static_web_apps_api_token: ${{ env.SWA_DEPLOYMENT_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
           app_location: dist
@@ -54,8 +106,33 @@ jobs:
     runs-on: ubuntu-latest
     name: Close Pull Request Job
     steps:
+      - name: Azure CLI login
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+        run: |
+          set -euo pipefail
+          command -v jq >/dev/null
+          TID=$(jq -r .tenantId <<<"$AZURE_CREDENTIALS")
+          CID=$(jq -r .clientId <<<"$AZURE_CREDENTIALS")
+          SEC=$(jq -r .clientSecret <<<"$AZURE_CREDENTIALS")
+          SUB=$(jq -r .subscriptionId <<<"$AZURE_CREDENTIALS")
+          az login --service-principal -u "$CID" -p "$SEC" --tenant "$TID"
+          if [ -n "$SUB" ] && [ "$SUB" != "null" ]; then
+            az account set --subscription "$SUB"
+          fi
+
+      - name: Fetch SWA deployment token
+        run: |
+          set -euo pipefail
+          TOKEN=$(az staticwebapp secrets list \
+            --name '${{ env.AZURE_STATIC_WEB_APP_NAME }}' \
+            --resource-group '${{ env.AZURE_RESOURCE_GROUP }}' \
+            --query properties.apiKey -o tsv)
+          echo "::add-mask::$TOKEN"
+          echo "SWA_DEPLOYMENT_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
       - name: Close Pull Request
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_YELLOW_ISLAND_0FEFE051E }}
+          azure_static_web_apps_api_token: ${{ env.SWA_DEPLOYMENT_TOKEN }}
           action: close

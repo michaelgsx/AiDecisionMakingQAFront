@@ -54,31 +54,43 @@ jobs:
           TID=$(jq -r .tenantId <<<"$AZURE_CREDENTIALS")
           CID=$(jq -r .clientId <<<"$AZURE_CREDENTIALS")
           SEC=$(jq -r .clientSecret <<<"$AZURE_CREDENTIALS")
+          SUB=$(jq -r .subscriptionId <<<"$AZURE_CREDENTIALS")
           if [ -z "$TID" ] || [ "$TID" = "null" ] || [ -z "$CID" ] || [ "$CID" = "null" ] || [ -z "$SEC" ] || [ "$SEC" = "null" ]; then
             echo "AZURE_CREDENTIALS must be JSON with tenantId, clientId, clientSecret." >&2
             exit 1
           fi
-          az login --service-principal -u "$CID" -p "$SEC" --tenant "$TID" --allow-no-subscriptions
+          az login --service-principal -u "$CID" -p "$SEC" --tenant "$TID"
+          if [ -n "$SUB" ] && [ "$SUB" != "null" ]; then
+            az account set --subscription "$SUB"
+          fi
 
       - name: Fetch SWA deployment token (ai-rag-agentic-qa)
         run: |
           set -euo pipefail
-          VAULT='${{ vars.AZURE_KEYVAULT_NAME }}'
-          if [ -z "$VAULT" ]; then VAULT='${{ secrets.AZURE_KEYVAULT_NAME }}'; fi
-          if [ -z "$VAULT" ] && [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VAULT='${{ github.event.inputs.keyvault_name }}'
+          SWA='ai-rag-agentic-qa'
+          RG='ai-rag-rg-1'
+          TOKEN=""
+          if TOKEN=$(az staticwebapp secrets list --name "$SWA" --resource-group "$RG" --query properties.apiKey -o tsv 2>/dev/null); then
+            :
           fi
-          if [ -z "$VAULT" ]; then VAULT="${{ env.AZURE_KEYVAULT_NAME }}"; fi
-          if [ -z "$VAULT" ]; then
-            VAULT="ai-rag-key"
-            echo "::warning::AZURE_KEYVAULT_NAME should be the vault name (e.g. ai-rag-key), not SP credentials. Using default ai-rag-key." >&2
-          fi
-          SECRET_NAME='${{ vars.KEYVAULT_SECRET_NAME }}'
-          if [ -z "$SECRET_NAME" ]; then SECRET_NAME='${{ secrets.KEYVAULT_SECRET_NAME }}'; fi
-          if [ -z "$SECRET_NAME" ]; then SECRET_NAME="${{ env.KEYVAULT_SECRET_NAME }}"; fi
-          TOKEN=$(az keyvault secret show --vault-name "$VAULT" --name "$SECRET_NAME" --query value -o tsv)
           if [ -z "$TOKEN" ]; then
-            echo "Empty secret $SECRET_NAME in vault $VAULT" >&2
+            VAULT='${{ vars.AZURE_KEYVAULT_NAME }}'
+            if [ -z "$VAULT" ]; then VAULT='${{ secrets.AZURE_KEYVAULT_NAME }}'; fi
+            if [ -z "$VAULT" ] && [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+              VAULT='${{ github.event.inputs.keyvault_name }}'
+            fi
+            if [ -z "$VAULT" ]; then VAULT="${{ env.AZURE_KEYVAULT_NAME }}"; fi
+            if [ -z "$VAULT" ]; then
+              VAULT="ai-rag-key"
+              echo "::warning::AZURE_KEYVAULT_NAME should be the vault name (e.g. ai-rag-key), not SP credentials. Using default ai-rag-key." >&2
+            fi
+            SECRET_NAME='${{ vars.KEYVAULT_SECRET_NAME }}'
+            if [ -z "$SECRET_NAME" ]; then SECRET_NAME='${{ secrets.KEYVAULT_SECRET_NAME }}'; fi
+            if [ -z "$SECRET_NAME" ]; then SECRET_NAME="${{ env.KEYVAULT_SECRET_NAME }}"; fi
+            TOKEN=$(az keyvault secret show --vault-name "$VAULT" --name "$SECRET_NAME" --query value -o tsv)
+          fi
+          if [ -z "$TOKEN" ]; then
+            echo "Empty deployment token from Azure SWA API and Key Vault." >&2
             exit 1
           fi
           echo "::add-mask::$TOKEN"
