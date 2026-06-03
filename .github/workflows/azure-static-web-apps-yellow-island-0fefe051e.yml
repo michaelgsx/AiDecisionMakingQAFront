@@ -1,13 +1,14 @@
-# Azure Static Web Apps: ai-rag-agentic-qa (yellow-island-0fefe051e)
-# Pre-build in GitHub Actions, then upload dist/ (skip Oryx app build).
+# Azure Static Web Apps: ai-rag-agentic-qa
+# Hostname: yellow-island-0fefe051e.7.azurestaticapps.net
 #
-# GitHub secrets:
-#   AZURE_CREDENTIALS       SP JSON { tenantId, clientId, clientSecret } — for az login only
-#   AZURE_KEYVAULT_NAME     Optional; vault name only, e.g. ai-rag-key (NOT credentials JSON)
+# This filename is registered with Azure when the SWA was linked to GitHub — do not rename.
+# GitHub-linked SWAs require BOTH deployment token + github_id_token (OIDC).
+#
+# Secrets:
+#   AZURE_CREDENTIALS           SP JSON for Key Vault read
+#   AZURE_KEYVAULT_NAME         Optional; vault name only: ai-rag-key
 #   VITE_AGENT_API_BASE_URL
-#   VITE_OPS_TOKEN          (optional)
-#
-# Deployment token: Key Vault ai-rag-key, secret ai-rag-agentic-qa
+#   VITE_OPS_TOKEN              (optional)
 
 name: Azure Static Web Apps CI/CD
 
@@ -32,6 +33,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -62,7 +64,7 @@ jobs:
           fi
           az login --service-principal -u "$CID" -p "$SEC" --tenant "$TID" --allow-no-subscriptions
 
-      - name: Fetch SWA deployment token from Key Vault
+      - name: Fetch SWA deployment token from Key Vault (ai-rag-agentic-qa)
         run: |
           set -euo pipefail
           VAULT='${{ vars.AZURE_KEYVAULT_NAME }}'
@@ -70,20 +72,31 @@ jobs:
           if [ -z "$VAULT" ]; then VAULT='${{ env.AZURE_KEYVAULT_NAME }}'; fi
           case "$VAULT" in
             '{'*)
-              echo "AZURE_KEYVAULT_NAME must be the vault name only (e.g. ai-rag-key), not SP credentials. Use AZURE_CREDENTIALS for login." >&2
+              echo "AZURE_KEYVAULT_NAME must be vault name only (ai-rag-key), not SP JSON." >&2
               exit 1
               ;;
           esac
-          SECRET_NAME='${{ env.KEYVAULT_SECRET_NAME }}'
-          TOKEN=$(az keyvault secret show --vault-name "$VAULT" --name "$SECRET_NAME" --query value -o tsv)
+          TOKEN=$(az keyvault secret show \
+            --vault-name "$VAULT" \
+            --name '${{ env.KEYVAULT_SECRET_NAME }}' \
+            --query value -o tsv | tr -d '\n\r')
           if [ -z "$TOKEN" ]; then
-            echo "Empty secret $SECRET_NAME in vault $VAULT" >&2
+            echo "Empty secret ${{ env.KEYVAULT_SECRET_NAME }} in vault $VAULT" >&2
             exit 1
           fi
+          echo "Fetched deployment token for SWA ai-rag-agentic-qa (length ${#TOKEN})"
           echo "::add-mask::$TOKEN"
           echo "SWA_DEPLOYMENT_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
-      - name: Deploy to Static Web App
+      - name: Get GitHub OIDC token
+        uses: actions/github-script@v7
+        id: idtoken
+        with:
+          script: |
+            const core = require('@actions/core')
+            return await core.getIDToken('api://AzureADTokenExchange')
+
+      - name: Deploy to Static Web App ai-rag-agentic-qa
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ env.SWA_DEPLOYMENT_TOKEN }}
@@ -93,21 +106,25 @@ jobs:
           api_location: ""
           output_location: ""
           skip_app_build: true
+          production_branch: v1
+          github_id_token: ${{ steps.idtoken.outputs.result }}
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
     name: Close Pull Request Job
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Azure CLI login
         env:
           AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
         run: |
           set -euo pipefail
-          command -v jq >/dev/null
-          TID=$(jq -r .tenantId <<<"$AZURE_CREDENTIALS")
-          CID=$(jq -r .clientId <<<"$AZURE_CREDENTIALS")
-          SEC=$(jq -r .clientSecret <<<"$AZURE_CREDENTIALS")
+          TID=$(jq -r .tenantId <<<"${{ secrets.AZURE_CREDENTIALS }}")
+          CID=$(jq -r .clientId <<<"${{ secrets.AZURE_CREDENTIALS }}")
+          SEC=$(jq -r .clientSecret <<<"${{ secrets.AZURE_CREDENTIALS }}")
           az login --service-principal -u "$CID" -p "$SEC" --tenant "$TID" --allow-no-subscriptions
 
       - name: Fetch SWA deployment token from Key Vault
@@ -116,7 +133,10 @@ jobs:
           VAULT='${{ vars.AZURE_KEYVAULT_NAME }}'
           if [ -z "$VAULT" ]; then VAULT='${{ secrets.AZURE_KEYVAULT_NAME }}'; fi
           if [ -z "$VAULT" ]; then VAULT='${{ env.AZURE_KEYVAULT_NAME }}'; fi
-          TOKEN=$(az keyvault secret show --vault-name "$VAULT" --name '${{ env.KEYVAULT_SECRET_NAME }}' --query value -o tsv)
+          TOKEN=$(az keyvault secret show \
+            --vault-name "$VAULT" \
+            --name '${{ env.KEYVAULT_SECRET_NAME }}' \
+            --query value -o tsv | tr -d '\n\r')
           echo "::add-mask::$TOKEN"
           echo "SWA_DEPLOYMENT_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
