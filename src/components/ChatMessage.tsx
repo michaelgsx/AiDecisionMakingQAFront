@@ -1,5 +1,6 @@
 import type { ChatMessage as Msg } from "../types/api";
 import { FeedbackBar } from "./FeedbackBar";
+import { WorkflowResultPanel } from "./WorkflowResultPanel";
 
 type Props = {
   message: Msg;
@@ -22,6 +23,7 @@ export function ChatMessage({ message, onFeedback, feedbackLoading }: Props) {
             <span className="mock-tag">Status: {message.status}</span>
           )}
         </div>
+        {!isUser && message.workflow && <WorkflowResultPanel workflow={message.workflow} />}
         {!isUser && (
           <FeedbackBar
             selected={message.feedback}

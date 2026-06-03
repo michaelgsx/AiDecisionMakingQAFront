@@ -1,15 +1,50 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  executeWorkflow,
   getWorkflowDiagram,
   pollUntilComplete,
   submitFeedback,
   submitHumanResponse,
-  submitQuestion,
 } from "../api/client";
 import { ChatMessage } from "../components/ChatMessage";
 import { HumanApprovalPanel } from "../components/HumanApprovalPanel";
 import { WorkflowDiagram } from "../components/WorkflowDiagram";
-import type { ChatMessage as Msg, HumanApprovalDto, RunStatusResponse, StepStatusDto } from "../types/api";
+import type {
+  ChatMessage as Msg,
+  HumanApprovalDto,
+  RunStatusResponse,
+  WorkflowSnapshot,
+} from "../types/api";
+import { buildWorkflowSnapshot } from "../utils/workflowSnapshot";
+
+function firstInputRequired(tick: RunStatusResponse): HumanApprovalDto | null {
+  const async = tick.pendingAsync?.find((p) => p.asyncKind === "INPUT_REQUIRED");
+  if (async) {
+    return {
+      requestId: async.requestId,
+      stepKey: async.stepKey,
+      prompt: async.prompt ?? "",
+      proposal: async.proposal ?? "",
+    };
+  }
+  if (tick.pendingApprovals?.length > 0) {
+    return tick.pendingApprovals[0];
+  }
+  return null;
+}
+
+function assistantMessage(
+  runId: string,
+  tick: Pick<RunStatusResponse, "status" | "answer" | "error" | "workflowMermaid" | "workflowJson" | "steps">,
+): Msg {
+  return {
+    id: runId,
+    role: "assistant",
+    content: tick.answer ?? tick.error ?? "(No answer produced)",
+    status: tick.status,
+    workflow: buildWorkflowSnapshot(runId, tick),
+  };
+}
 
 export function ChatPage() {
   const [conversationId, setConversationId] = useState<string | undefined>();
@@ -22,33 +57,32 @@ export function ChatPage() {
   const [humanLoading, setHumanLoading] = useState(false);
   const [feedbackLoadingId, setFeedbackLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [workflowMermaid, setWorkflowMermaid] = useState<string | null>(null);
-  const [workflowSteps, setWorkflowSteps] = useState<StepStatusDto[]>([]);
+  const [activeWorkflow, setActiveWorkflow] = useState<WorkflowSnapshot | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading, runStatus]);
+  }, [messages, loading, runStatus, activeWorkflow]);
 
-  const applyWorkflowTick = (tick: RunStatusResponse) => {
+  const applyWorkflowTick = (runId: string, tick: Pick<RunStatusResponse, "status" | "workflowMermaid" | "workflowJson" | "steps" | "answer" | "error">) => {
     setRunStatus(tick.status);
-    if (tick.workflowMermaid) {
-      setWorkflowMermaid(tick.workflowMermaid);
-    }
-    if (tick.steps.length > 0) {
-      setWorkflowSteps(tick.steps);
-    }
+    setActiveWorkflow(buildWorkflowSnapshot(runId, tick));
   };
 
-  const ensureWorkflowDiagram = async (runId: string, tick: RunStatusResponse) => {
+  const ensureWorkflowDiagram = async (
+    runId: string,
+    tick: Pick<RunStatusResponse, "workflowMermaid" | "workflowJson" | "steps" | "status" | "answer" | "error">,
+  ) => {
     if (tick.workflowMermaid) {
-      setWorkflowMermaid(tick.workflowMermaid);
+      applyWorkflowTick(runId, tick);
       return;
     }
     try {
       const mermaid = await getWorkflowDiagram(runId);
-      if (mermaid) setWorkflowMermaid(mermaid);
+      if (mermaid) {
+        applyWorkflowTick(runId, { ...tick, workflowMermaid: mermaid });
+      }
     } catch {
       /* diagram is optional */
     }
@@ -66,48 +100,32 @@ export function ChatPage() {
     setRunStatus("PENDING");
     setPendingApproval(null);
     setActiveRunId(null);
-    setWorkflowMermaid(null);
-    setWorkflowSteps([]);
+    setActiveWorkflow(null);
 
     try {
-      const ask = await submitQuestion({
+      const result = await executeWorkflow({
         question: text,
         conversationId,
       });
-      setConversationId(conversationId ?? ask.runId);
-      setActiveRunId(ask.runId);
+      setConversationId(conversationId ?? result.runId);
+      setActiveRunId(result.runId);
+      applyWorkflowTick(result.runId, result);
+      await ensureWorkflowDiagram(result.runId, result);
 
-      const final = await pollUntilComplete(ask.runId, (tick) => {
-        applyWorkflowTick(tick);
-        if (tick.waitingForHuman && tick.pendingApprovals.length > 0) {
-          setPendingApproval(tick.pendingApprovals[0]);
-        } else {
-          setPendingApproval(null);
-        }
-      });
-      await ensureWorkflowDiagram(ask.runId, final);
-
-      if (final.waitingForHuman) {
+      if (result.waitingForAsync) {
         setLoading(false);
         return;
       }
 
-      if (final.status === "FAILED") {
-        throw new Error(final.error ?? "Orchestrator run failed");
+      if (result.status === "FAILED") {
+        throw new Error(result.error ?? "Orchestrator run failed");
       }
 
-      setMessages((m) => [
-        ...m,
-        {
-          id: ask.runId,
-          role: "assistant",
-          content: final.answer ?? "(No answer produced)",
-          status: final.status,
-        },
-      ]);
-      setRunStatus(final.status);
+      setMessages((m) => [...m, assistantMessage(result.runId, result)]);
+      setRunStatus(result.status);
       setPendingApproval(null);
       setActiveRunId(null);
+      setActiveWorkflow(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Request failed");
       setMessages((m) => m.filter((x) => x.id !== userMsg.id));
@@ -151,14 +169,19 @@ export function ChatPage() {
     setHumanLoading(true);
     setError(null);
     try {
-      const updated = await submitHumanResponse(activeRunId, {
-        requestId: pendingApproval.requestId,
-        decision,
-      });
+      const updated = await submitHumanResponse(
+        activeRunId,
+        {
+          requestId: pendingApproval.requestId,
+          decision,
+        },
+        pendingApproval.stepKey,
+      );
       setPendingApproval(null);
-      applyWorkflowTick(updated);
-      if (updated.waitingForHuman && updated.pendingApprovals.length > 0) {
-        setPendingApproval(updated.pendingApprovals[0]);
+      applyWorkflowTick(activeRunId, updated);
+      const pending = firstInputRequired(updated);
+      if (pending) {
+        setPendingApproval(pending);
         return;
       }
       setLoading(true);
@@ -166,39 +189,23 @@ export function ChatPage() {
         if (updated.status === "FAILED") {
           throw new Error(updated.error ?? "Run failed after human response");
         }
-        setMessages((m) => [
-          ...m,
-          {
-            id: activeRunId,
-            role: "assistant",
-            content: updated.answer ?? "(No answer produced)",
-            status: updated.status,
-          },
-        ]);
+        setMessages((m) => [...m, assistantMessage(activeRunId, updated)]);
         setActiveRunId(null);
+        setActiveWorkflow(null);
         setLoading(false);
         return;
       }
       const final = await pollUntilComplete(activeRunId, (tick) => {
-        applyWorkflowTick(tick);
-        if (tick.waitingForHuman && tick.pendingApprovals.length > 0) {
-          setPendingApproval(tick.pendingApprovals[0]);
-        }
+        applyWorkflowTick(activeRunId, tick);
+        setPendingApproval(firstInputRequired(tick));
       });
       await ensureWorkflowDiagram(activeRunId, final);
       if (final.status === "FAILED") {
         throw new Error(final.error ?? "Orchestrator run failed");
       }
-      setMessages((m) => [
-        ...m,
-        {
-          id: activeRunId,
-          role: "assistant",
-          content: final.answer ?? "(No answer produced)",
-          status: final.status,
-        },
-      ]);
+      setMessages((m) => [...m, assistantMessage(activeRunId, final)]);
       setActiveRunId(null);
+      setActiveWorkflow(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Human response failed");
     } finally {
@@ -214,15 +221,16 @@ export function ChatPage() {
     setRunStatus(null);
     setPendingApproval(null);
     setActiveRunId(null);
-    setWorkflowMermaid(null);
-    setWorkflowSteps([]);
+    setActiveWorkflow(null);
   };
+
+  const showLiveWorkflow = activeWorkflow && (loading || pendingApproval);
 
   return (
     <div className="chat-page">
       <div className="chat-toolbar">
         <p className="chat-hint">
-          Questions go to the <strong>orchestrator</strong> (DAG planner + tool executor). Poll until complete.
+          Questions go to the <strong>orchestrator</strong> (plan → validate → execute sync workflow).
         </p>
         <button type="button" className="btn-ghost" onClick={newChat}>
           New chat
@@ -235,8 +243,8 @@ export function ChatPage() {
         </p>
       )}
 
-      {(workflowMermaid || workflowSteps.length > 0) && (
-        <WorkflowDiagram source={workflowMermaid} steps={workflowSteps} />
+      {showLiveWorkflow && (
+        <WorkflowDiagram source={activeWorkflow.workflowMermaid} steps={activeWorkflow.steps} />
       )}
 
       {pendingApproval && (
@@ -265,10 +273,13 @@ export function ChatPage() {
         {loading && (
           <div className="chat-row assistant">
             <div className="chat-avatar">AI</div>
-            <div className="chat-bubble typing">
-              <span className="dot" />
-              <span className="dot" />
-              <span className="dot" />
+            <div className="chat-bubble-wrap">
+              <div className="chat-bubble typing">
+                <span className="dot" />
+                <span className="dot" />
+                <span className="dot" />
+              </div>
+              <p className="chat-loading-label">Planning and executing workflow…</p>
             </div>
           </div>
         )}

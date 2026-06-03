@@ -203,6 +203,156 @@ main {
   color: var(--danger);
 }
 
+.workflow-result {
+  margin-top: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(12, 16, 22, 0.85);
+}
+
+.workflow-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.workflow-result-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.workflow-result-status {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.workflow-result-status--completed {
+  color: var(--ok);
+  border-color: rgba(25, 135, 84, 0.45);
+}
+
+.workflow-result-status--failed,
+.workflow-result-status--timed_out {
+  color: var(--danger);
+  border-color: rgba(220, 53, 69, 0.45);
+}
+
+.workflow-result-summary {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.workflow-result-error {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  color: var(--danger);
+}
+
+.workflow-result-steps {
+  list-style: none;
+  margin: 0 0 0.65rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.workflow-result-step {
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.workflow-result-step-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.74rem;
+}
+
+.workflow-result-step-key {
+  font-family: var(--mono);
+  color: var(--accent);
+}
+
+.workflow-result-step-tool {
+  font-weight: 600;
+}
+
+.workflow-result-step-version {
+  color: var(--muted);
+}
+
+.workflow-result-step-status {
+  margin-left: auto;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.workflow-result-step--completed .workflow-result-step-status {
+  color: var(--ok);
+}
+
+.workflow-result-step--failed .workflow-result-step-status,
+.workflow-result-step--timed_out .workflow-result-step-status {
+  color: var(--danger);
+}
+
+.workflow-result-step-attempts {
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.workflow-result-step-error {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: var(--danger);
+}
+
+.workflow-result-output,
+.workflow-result-plan {
+  margin-top: 0.4rem;
+}
+
+.workflow-result-output summary,
+.workflow-result-plan summary {
+  cursor: pointer;
+  font-size: 0.72rem;
+  color: var(--accent);
+}
+
+.workflow-result-json {
+  margin: 0.35rem 0 0;
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  line-height: 1.45;
+  overflow: auto;
+  max-height: 16rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-loading-label {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
 .btn-ghost {
   background: transparent;
   border: 1px solid var(--border);
@@ -593,4 +743,179 @@ main {
   margin: 0.5rem 0 0;
   font-size: 0.8rem;
   color: var(--muted);
+}
+
+.tool-registry-page {
+  flex: 1;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1rem;
+  min-height: 0;
+  overflow: auto;
+}
+
+.tool-registry-toolbar h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+}
+
+.tool-registry-hint {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.tool-registry-hint code {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+
+.tool-registry-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.tool-registry-success {
+  color: var(--ok);
+  font-size: 0.9rem;
+  margin: 0 0 0.75rem;
+}
+
+.tool-registry-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .tool-registry-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tool-registry-list-panel,
+.tool-registry-form-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  background: var(--surface);
+}
+
+.tool-registry-list-panel h3,
+.tool-registry-form-panel h3 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.tool-registry-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tool-registry-item {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.tool-registry-item.active {
+  border-color: var(--accent);
+  background: rgba(91, 159, 216, 0.1);
+}
+
+.tool-registry-item-name {
+  display: block;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.tool-registry-item-meta {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+}
+
+.tool-registry-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.tool-registry-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.tool-registry-form input,
+.tool-registry-form select,
+.tool-registry-form textarea {
+  font: inherit;
+  font-weight: 400;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+  background: var(--bg);
+}
+
+.tool-registry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.65rem;
+}
+
+.tool-registry-check {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.45rem !important;
+  align-self: end;
+}
+
+.tool-schema-fieldset {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin: 0;
+}
+
+.tool-schema-fieldset legend {
+  padding: 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.tool-schema-row {
+  display: grid;
+  grid-template-columns: 120px 100px 1fr auto;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+@media (max-width: 700px) {
+  .tool-schema-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tool-registry-submit {
+  margin-top: 0.25rem;
 }

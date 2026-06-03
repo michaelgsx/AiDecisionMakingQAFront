@@ -17,6 +17,23 @@ export type HumanApprovalDto = {
   proposal: string;
 };
 
+export type PendingAsyncDto = {
+  requestId: string;
+  runId: string;
+  workflowId: string;
+  userId?: string;
+  stepKey: string;
+  stepId?: string;
+  toolName: string;
+  toolVersion: string;
+  asyncKind: "INPUT_REQUIRED" | "POLL_ONLY";
+  prompt?: string;
+  proposal?: string;
+  allowedDecisions: string[];
+  feedbackPath?: string;
+  pollPath?: string;
+};
+
 export type RunStatusResponse = {
   runId: string;
   status: string;
@@ -25,9 +42,61 @@ export type RunStatusResponse = {
   error?: string;
   workflowJson?: string;
   workflowMermaid?: string;
+  userId?: string;
+  transactionId?: string;
   steps: StepStatusDto[];
+  waitingForAsync: boolean;
+  pendingAsync: PendingAsyncDto[];
+  /** @deprecated use pendingAsync */
   waitingForHuman: boolean;
+  /** @deprecated use pendingAsync */
   pendingApprovals: HumanApprovalDto[];
+  pollPath?: string;
+  feedbackPath?: string;
+};
+
+export type ExecuteRequest = {
+  question: string;
+  conversationId?: string;
+  userId?: string;
+  transactionId?: string;
+};
+
+export type ExecuteResponse = {
+  runId: string;
+  workflowId: string;
+  status: string;
+  completed: boolean;
+  waitingForAsync: boolean;
+  question: string;
+  answer?: string;
+  error?: string;
+  userId?: string;
+  transactionId?: string;
+  workflowJson?: string;
+  workflowMermaid?: string;
+  steps: StepStatusDto[];
+  pendingAsync: PendingAsyncDto[];
+  pollPath?: string;
+  feedbackPath?: string;
+};
+
+export type AsyncToolFeedbackRequest = {
+  requestId: string;
+  stepKey: string;
+  userId?: string;
+  toolName?: string;
+  toolVersion?: string;
+  result: "accept" | "reject" | string;
+  comment?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type AsyncToolPollRequest = {
+  requestId?: string;
+  stepKey: string;
+  toolName?: string;
+  toolVersion?: string;
 };
 
 export type HumanResponseRequest = {
@@ -40,9 +109,21 @@ export type StepStatusDto = {
   stepId: string;
   stepKey: string;
   toolName: string;
+  toolVersion?: string;
   status: string;
   error?: string;
   attemptCount: number;
+  outputJson?: string;
+};
+
+export type WorkflowSnapshot = {
+  runId: string;
+  status: string;
+  answer?: string;
+  error?: string;
+  workflowMermaid?: string;
+  workflowJson?: string;
+  steps: StepStatusDto[];
 };
 
 export type FeedbackRequest = {
@@ -65,6 +146,7 @@ export type ChatMessage = {
   content: string;
   status?: string;
   feedback?: "up" | "down";
+  workflow?: WorkflowSnapshot;
 };
 
 export type EvaluationStatusFilter = "pending" | "accepted" | "rejected" | "all";
@@ -96,3 +178,49 @@ export type WorkflowDiagramResponse = {
   format: string;
   mermaid: string;
 };
+
+export type ToolSchemaFieldDto = {
+  name: string;
+  type: string;
+  description: string;
+};
+
+export type ToolSchemaDto = {
+  description?: string;
+  fields: ToolSchemaFieldDto[];
+};
+
+export type RegisterToolRequest = {
+  name: string;
+  version: string;
+  maxRetry: number;
+  description: string;
+  toolType:
+    | "DATA_ACQUISITION"
+    | "SIMILARITY_RETRIEVAL"
+    | "LLM_REASONING"
+    | "AGGREGATE"
+    | "FEEDBACK"
+    | "VALIDATION";
+  executionMode: "SYNC" | "ASYNC";
+  inputSchema: ToolSchemaDto;
+  outputSchema: ToolSchemaDto;
+  enabled: boolean;
+};
+
+export type ToolRegistrationResponse = RegisterToolRequest & {
+  executorAvailable: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export const TOOL_TYPE_OPTIONS = [
+  "DATA_ACQUISITION",
+  "SIMILARITY_RETRIEVAL",
+  "LLM_REASONING",
+  "AGGREGATE",
+  "FEEDBACK",
+  "VALIDATION",
+] as const;
+
+export const SCHEMA_TYPE_OPTIONS = ["string", "integer", "number", "boolean", "object", "array"] as const;

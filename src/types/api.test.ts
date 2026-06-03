@@ -10,6 +10,8 @@ describe("api types", () => {
       workflowJson: "{}",
       workflowMermaid: "flowchart TD",
       steps: [],
+      waitingForAsync: false,
+      pendingAsync: [],
       waitingForHuman: false,
       pendingApprovals: [],
     };

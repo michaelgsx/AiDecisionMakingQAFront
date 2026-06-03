@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getRunStatus,
   getWorkflowDiagram,
+  listTools,
   pollUntilComplete,
+  registerTool,
   submitQuestion,
 } from "./client";
 
@@ -47,6 +49,29 @@ describe("api client", () => {
     const final = await pollUntilComplete(crypto.randomUUID(), (s) => ticks.push(s.status));
     expect(final.status).toBe("COMPLETED");
     expect(ticks).toContain("COMPLETED");
+  });
+
+  it("listTools in mock mode returns registry entries", async () => {
+    const tools = await listTools();
+    expect(tools.length).toBeGreaterThan(0);
+    expect(tools[0].name).toBe("data_acquisition");
+    expect(tools[0].inputSchema.fields[0].name).toBe("question");
+  });
+
+  it("registerTool in mock mode echoes payload", async () => {
+    const res = await registerTool({
+      name: "data_acquisition",
+      version: "1.1.0",
+      maxRetry: 3,
+      description: "test",
+      toolType: "DATA_ACQUISITION",
+      executionMode: "SYNC",
+      inputSchema: { fields: [{ name: "q", type: "string", description: "d" }] },
+      outputSchema: { fields: [{ name: "rows", type: "array", description: "d" }] },
+      enabled: true,
+    });
+    expect(res.name).toBe("data_acquisition");
+    expect(res.executorAvailable).toBe(true);
   });
 
   it("submitQuestion without mock or base URL throws", async () => {

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { ChatPage } from "./pages/ChatPage";
 import { EvaluationPage } from "./pages/EvaluationPage";
+import { ToolRegistryPage } from "./pages/ToolRegistryPage";
 
-type Tab = "chat" | "evaluation";
+type Tab = "chat" | "evaluation" | "tools";
 
 export function App() {
   const [tab, setTab] = useState<Tab>("chat");
@@ -27,11 +28,22 @@ export function App() {
             >
               Evaluation
             </button>
+            <button
+              type="button"
+              className={tab === "tools" ? "tab active" : "tab"}
+              onClick={() => setTab("tools")}
+            >
+              Tools
+            </button>
           </nav>
           <span className="header-sub">Agentic AI · AiDecisionMakingAgenticAI</span>
         </div>
       </header>
-      <main>{tab === "chat" ? <ChatPage /> : <EvaluationPage />}</main>
+      <main>
+        {tab === "chat" && <ChatPage />}
+        {tab === "evaluation" && <EvaluationPage />}
+        {tab === "tools" && <ToolRegistryPage />}
+      </main>
     </div>
   );
 }
