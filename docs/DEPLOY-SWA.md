@@ -1,41 +1,47 @@
-# QA frontend deploy troubleshooting (ai-rag-agentic-qa)
+# QA frontend deploy (ai-rag-agentic-qa)
 
-## Root cause of "api key was invalid"
+Same pattern as **AiDecisionMakingFrontend** → SWA `ai-rag-webapp`: pre-build in CI, upload `dist/` with a deployment token from Key Vault.
 
-Azure Static Web App **`ai-rag-agentic-qa`** had:
+## Azure resource
 
-- `deploymentAuthPolicy: GitHub` — token-only uploads rejected unless GitHub link is valid
-- `repositoryToken: null` — broken GitHub connection
+| Item | Value |
+|------|--------|
+| SWA name | `ai-rag-agentic-qa` |
+| URL | `https://yellow-island-0fefe051e.7.azurestaticapps.net` |
+| Key Vault | `ai-rag-key` |
+| Deploy token secret | `ai-rag-agentic-qa` |
+| Auth policy | **Deployment token** (not GitHub OIDC) |
 
-Resetting the deployment token (Option A) does **not** fix this if the policy is still **GitHub** and the repo is disconnected.
+## Workflow
 
-## Fix in Azure Portal (required)
+Use **Deploy QA frontend (ai-rag-agentic-qa)** — `.github/workflows/deploy-qa-swa.yml` on push to `v1`.
 
-1. Open **ai-rag-agentic-qa** → **Settings** → **Configuration** → **Deployment configuration**
-2. **Connect** GitHub:
-   - Repo: `michaelgsx/AiDecisionMakingQAFront`
-   - Branch: `v1`
-3. Set **Deployment authorization policy** to **Deployment token** (recommended for Key Vault / CI token deploy)
-   - If the dropdown is greyed out, click **Disconnect**, then connect again
-4. **Overview** → **Manage deployment token** → **Reset** → **Copy**
+The Portal auto-generated workflow (`azure-static-web-apps-yellow-island-0fefe051e.yml`) is disabled; do not re-enable OIDC / `AZURE_STATIC_WEB_APPS_API_TOKEN_*` deploys.
 
-## Update secrets
+## GitHub Actions secrets
 
-### GitHub (AiDecisionMakingQAFront → Settings → Secrets → Actions)
+| Secret | Purpose |
+|--------|---------|
+| `AZURE_CREDENTIALS` | SP JSON: `{ "tenantId", "clientId", "clientSecret" }` |
+| `VITE_AGENT_API_BASE_URL` | Agentic API URL (no trailing slash) |
+| `VITE_OPS_TOKEN` | Optional; must match backend `OPS_TOKEN` |
 
-| Secret | Value |
-|--------|--------|
-| `AZURE_STATIC_WEB_APPS_API_TOKEN_YELLOW_ISLAND_0FEFE051E` | Paste token from step 4 |
-| `AZURE_CREDENTIALS` | SP JSON (optional Key Vault fallback) |
-| `VITE_AGENT_API_BASE_URL` | Backend URL |
+Optional repository **variable** (not credentials): `AZURE_KEYVAULT_NAME` = `ai-rag-key`.
 
-### Key Vault (optional, for deploy-qa-swa.yml)
+The SP needs **Key Vault Secrets User** on `ai-rag-key`.
+
+## Refresh Key Vault token after reset
+
+If you reset the SWA deployment token in Azure Portal:
 
 ```bash
 TOKEN=$(az staticwebapp secrets list -n ai-rag-agentic-qa -g ai-rag-rg-1 --query properties.apiKey -o tsv)
 az keyvault secret set --vault-name ai-rag-key --name ai-rag-agentic-qa --value "$TOKEN"
 ```
 
-## Re-run deploy
+Then re-run the workflow (push to `v1` or workflow_dispatch).
 
-GitHub → Actions → **Azure Static Web Apps CI/CD** → Re-run
+## Portal checks (one-time)
+
+1. **ai-rag-agentic-qa** → Configuration → **Deployment authorization policy** = **Deployment token**
+2. No GitHub repo link required for token-based CI (disconnect GitHub if a broken link causes confusion)

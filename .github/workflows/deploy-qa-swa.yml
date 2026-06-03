@@ -1,7 +1,29 @@
-# Deploy QA chat UI to Azure Static Web Apps resource: ai-rag-agentic-qa
-# Deployment token: Key Vault ai-rag-key, secret ai-rag-agentic-qa
+# Deploy Vite SPA to Azure Static Web Apps resource: ai-rag-agentic-qa
+# Deployment token is read from Azure Key Vault at runtime (same pattern as AiDecisionMakingFrontend).
 #
-# GitHub secrets: AZURE_CREDENTIALS, VITE_AGENT_API_BASE_URL, VITE_OPS_TOKEN (optional)
+# --- GitHub → Settings → Secrets and variables → Actions ---
+#
+# Secrets (required):
+#   AZURE_CREDENTIALS
+#     JSON: clientId, clientSecret, tenantId (subscriptionId optional — ignored by login step).
+#     Login uses Azure CLI with --allow-no-subscriptions so Key Vault works even if the SP
+#     has no subscription RBAC (subscriptionId in JSON no longer breaks login).
+#     Grant the same app "Key Vault Secrets User" on the vault (IAM on the Key Vault resource).
+#
+# Repository variable OR secret (same name; use Variables tab OR Secrets tab):
+#   AZURE_KEYVAULT_NAME
+#     Vault name only (not URI), e.g. ai-rag-key
+#     If Variables/Secrets are empty (e.g. fork PR), workflow falls back to default vault name
+#     ai-rag-key or workflow_dispatch input keyvault_name.
+#
+# Optional repository variable OR secret:
+#   KEYVAULT_SECRET_NAME
+#     Defaults to ai-rag-agentic-qa if unset.
+#
+# Optional secrets (Vite build-time):
+#   VITE_AGENT_API_BASE_URL   (no trailing slash)
+#   VITE_OPS_TOKEN
+#   VITE_USE_MOCK               (e.g. true for mock-only UI build)
 
 name: Deploy QA frontend (ai-rag-agentic-qa)
 
@@ -9,19 +31,15 @@ on:
   workflow_dispatch:
     inputs:
       keyvault_name:
-        description: "Key Vault name"
+        description: "Azure Key Vault name (used if repo Variable/Secret AZURE_KEYVAULT_NAME is empty)"
         required: false
         type: string
         default: ai-rag-key
   push:
-    branches: [main]
+    branches: [v1]
   pull_request:
     types: [opened, synchronize, reopened, closed]
-    branches: [main]
-
-env:
-  AZURE_KEYVAULT_NAME: ai-rag-key
-  KEYVAULT_SECRET_NAME: ai-rag-agentic-qa
+    branches: [v1]
 
 jobs:
   build_and_deploy:
@@ -60,7 +78,7 @@ jobs:
           fi
           az login --service-principal -u "$CID" -p "$SEC" --tenant "$TID" --allow-no-subscriptions
 
-      - name: Fetch SWA deployment token from Key Vault
+      - name: Fetch Static Web Apps deployment token from Key Vault
         run: |
           set -euo pipefail
           VAULT='${{ vars.AZURE_KEYVAULT_NAME }}'
@@ -68,24 +86,28 @@ jobs:
           if [ -z "$VAULT" ] && [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             VAULT='${{ github.event.inputs.keyvault_name }}'
           fi
-          if [ -z "$VAULT" ]; then VAULT="${{ env.AZURE_KEYVAULT_NAME }}"; fi
-          case "$VAULT" in
-            '{'*)
-              echo "AZURE_KEYVAULT_NAME must be the vault name only (e.g. ai-rag-key), not SP credentials. Use AZURE_CREDENTIALS for login." >&2
-              exit 1
-              ;;
-          esac
+          if [ -z "$VAULT" ]; then
+            VAULT="ai-rag-key"
+            echo "::warning::AZURE_KEYVAULT_NAME not set in repo Variables/Secrets; using default vault name ai-rag-key. Add Variable AZURE_KEYVAULT_NAME to avoid this." >&2
+          fi
           SECRET_NAME='${{ vars.KEYVAULT_SECRET_NAME }}'
-          if [ -z "$SECRET_NAME" ]; then SECRET_NAME="${{ env.KEYVAULT_SECRET_NAME }}"; fi
-          TOKEN=$(az keyvault secret show --vault-name "$VAULT" --name "$SECRET_NAME" --query value -o tsv)
+          if [ -z "$SECRET_NAME" ]; then SECRET_NAME='${{ secrets.KEYVAULT_SECRET_NAME }}'; fi
+          if [ -z "$SECRET_NAME" ]; then SECRET_NAME="ai-rag-agentic-qa"; fi
+          TOKEN=$(az keyvault secret show \
+            --vault-name "$VAULT" \
+            --name "$SECRET_NAME" \
+            --query value -o tsv)
           if [ -z "$TOKEN" ]; then
-            echo "Empty secret $SECRET_NAME in vault $VAULT" >&2
+            echo "Key Vault returned an empty secret." >&2
             exit 1
           fi
           echo "::add-mask::$TOKEN"
           echo "SWA_DEPLOYMENT_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
-      - name: Deploy to Static Web App ai-rag-agentic-qa
+      # skip_app_build: true — per MS docs, app_location must be the folder to deploy
+      # and output_location must be empty (not repo root + "dist").
+      # https://learn.microsoft.com/en-us/azure/static-web-apps/build-configuration
+      - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ env.SWA_DEPLOYMENT_TOKEN }}
@@ -99,26 +121,47 @@ jobs:
   close_pr_environment:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - name: Azure CLI login
+      - name: Azure CLI login (service principal, Key Vault–friendly)
         env:
           AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
         run: |
           set -euo pipefail
-          TID=$(jq -r .tenantId <<<"${{ secrets.AZURE_CREDENTIALS }}")
-          CID=$(jq -r .clientId <<<"${{ secrets.AZURE_CREDENTIALS }}")
-          SEC=$(jq -r .clientSecret <<<"${{ secrets.AZURE_CREDENTIALS }}")
+          command -v jq >/dev/null
+          TID=$(jq -r .tenantId <<<"$AZURE_CREDENTIALS")
+          CID=$(jq -r .clientId <<<"$AZURE_CREDENTIALS")
+          SEC=$(jq -r .clientSecret <<<"$AZURE_CREDENTIALS")
+          if [ -z "$TID" ] || [ "$TID" = "null" ] || [ -z "$CID" ] || [ "$CID" = "null" ] || [ -z "$SEC" ] || [ "$SEC" = "null" ]; then
+            echo "AZURE_CREDENTIALS must be JSON with tenantId, clientId, clientSecret." >&2
+            exit 1
+          fi
           az login --service-principal -u "$CID" -p "$SEC" --tenant "$TID" --allow-no-subscriptions
 
-      - name: Fetch SWA deployment token
+      - name: Fetch Static Web Apps deployment token from Key Vault
         run: |
           set -euo pipefail
-          VAULT="${{ env.AZURE_KEYVAULT_NAME }}"
-          TOKEN=$(az keyvault secret show --vault-name "$VAULT" --name "${{ env.KEYVAULT_SECRET_NAME }}" --query value -o tsv)
+          VAULT='${{ vars.AZURE_KEYVAULT_NAME }}'
+          if [ -z "$VAULT" ]; then VAULT='${{ secrets.AZURE_KEYVAULT_NAME }}'; fi
+          if [ -z "$VAULT" ] && [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VAULT='${{ github.event.inputs.keyvault_name }}'
+          fi
+          if [ -z "$VAULT" ]; then
+            VAULT="ai-rag-key"
+            echo "::warning::AZURE_KEYVAULT_NAME not set; using default ai-rag-key for PR close job." >&2
+          fi
+          SECRET_NAME='${{ vars.KEYVAULT_SECRET_NAME }}'
+          if [ -z "$SECRET_NAME" ]; then SECRET_NAME='${{ secrets.KEYVAULT_SECRET_NAME }}'; fi
+          if [ -z "$SECRET_NAME" ]; then SECRET_NAME="ai-rag-agentic-qa"; fi
+          TOKEN=$(az keyvault secret show \
+            --vault-name "$VAULT" \
+            --name "$SECRET_NAME" \
+            --query value -o tsv)
           echo "::add-mask::$TOKEN"
           echo "SWA_DEPLOYMENT_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
-      - name: Close PR preview
+      - name: Close Static Web Apps PR environment
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ env.SWA_DEPLOYMENT_TOKEN }}

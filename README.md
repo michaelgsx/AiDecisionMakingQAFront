@@ -115,14 +115,9 @@ src/
 | Key Vault | `ai-rag-key` |
 | Deploy token secret | `ai-rag-agentic-qa` |
 
-**Workflows**
+**CI/CD:** `.github/workflows/deploy-qa-swa.yml` on push to `v1` (same Key Vault token pattern as AiDecisionMakingFrontend).
 
-| Branch | Workflow | Deploy token source |
-|--------|----------|---------------------|
-| `v1` | `.github/workflows/azure-static-web-apps-yellow-island-0fefe051e.yml` | Key Vault `ai-rag-key` / `ai-rag-agentic-qa` |
-| `main` / manual | `.github/workflows/deploy-qa-swa.yml` | Same |
-
-Both workflows pre-build with `npm run build`, then upload `dist/` with `skip_app_build: true`.
+Pre-build with `npm run build`, then upload `dist/` with `skip_app_build: true`. See [docs/DEPLOY-SWA.md](docs/DEPLOY-SWA.md).
 
 **GitHub Actions secrets**
 

@@ -1,128 +1,14 @@
-# Azure Static Web Apps: ai-rag-agentic-qa
-# Hostname: yellow-island-0fefe051e.7.azurestaticapps.net
-#
-# IMPORTANT — Azure "Deployment authorization policy":
-#   - GitHub        → needs valid GitHub repo link + OIDC (repositoryToken on SWA)
-#   - DeploymentToken → accepts deployment token from Key Vault / GitHub secret
-#
-# If deploy fails with "api key was invalid" while policy is GitHub, reconnect GitHub
-# in Azure Portal (Deployment configuration) OR switch policy to Deployment token.
-#
-# Secrets:
-#   AZURE_STATIC_WEB_APPS_API_TOKEN_YELLOW_ISLAND_0FEFE051E  (from Portal → Manage deployment token)
-#   AZURE_CREDENTIALS + Key Vault ai-rag-key/ai-rag-agentic-qa  (optional fallback)
-#   VITE_AGENT_API_BASE_URL
+# Disabled: use deploy-qa-swa.yml (Key Vault token) instead.
+# Azure Portal auto-generated this workflow; keeping the file avoids re-creation on link,
+# but it no longer runs on push/PR.
 
-name: Azure Static Web Apps CI/CD
+name: Azure Static Web Apps CI/CD (disabled)
 
 on:
-  push:
-    branches:
-      - v1
-  pull_request:
-    types: [opened, synchronize, reopened, closed]
-    branches:
-      - v1
-
-env:
-  AZURE_KEYVAULT_NAME: ai-rag-key
-  KEYVAULT_SECRET_NAME: ai-rag-agentic-qa
+  workflow_dispatch:
 
 jobs:
-  build_and_deploy_job:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
+  noop:
     runs-on: ubuntu-latest
-    name: Build and Deploy Job
-    permissions:
-      contents: read
-      pull-requests: write
-      id-token: write
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-
-      - name: Install and build
-        run: npm ci && npm run build
-        env:
-          VITE_AGENT_API_BASE_URL: ${{ secrets.VITE_AGENT_API_BASE_URL }}
-          VITE_OPS_TOKEN: ${{ secrets.VITE_OPS_TOKEN }}
-          VITE_USE_MOCK: ${{ secrets.VITE_USE_MOCK }}
-
-      - name: Resolve SWA deployment token
-        env:
-          GH_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_YELLOW_ISLAND_0FEFE051E }}
-          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
-        run: |
-          set -euo pipefail
-          TOKEN=""
-          if [ -n "${GH_TOKEN:-}" ]; then
-            TOKEN=$(printf '%s' "$GH_TOKEN" | tr -d '\n\r')
-            echo "Using GitHub secret AZURE_STATIC_WEB_APPS_API_TOKEN_YELLOW_ISLAND_0FEFE051E"
-          fi
-          if [ -z "$TOKEN" ] && [ -n "${AZURE_CREDENTIALS:-}" ]; then
-            command -v jq >/dev/null
-            TID=$(jq -r .tenantId <<<"$AZURE_CREDENTIALS")
-            CID=$(jq -r .clientId <<<"$AZURE_CREDENTIALS")
-            SEC=$(jq -r .clientSecret <<<"$AZURE_CREDENTIALS")
-            az login --service-principal -u "$CID" -p "$SEC" --tenant "$TID" --allow-no-subscriptions
-            VAULT='${{ vars.AZURE_KEYVAULT_NAME }}'
-            if [ -z "$VAULT" ]; then VAULT='${{ secrets.AZURE_KEYVAULT_NAME }}'; fi
-            if [ -z "$VAULT" ]; then VAULT='${{ env.AZURE_KEYVAULT_NAME }}'; fi
-            case "$VAULT" in '{'*) VAULT='ai-rag-key' ;; esac
-            TOKEN=$(az keyvault secret show --vault-name "$VAULT" --name '${{ env.KEYVAULT_SECRET_NAME }}' --query value -o tsv | tr -d '\n\r')
-            echo "Using Key Vault secret ${{ env.KEYVAULT_SECRET_NAME }} from $VAULT"
-          fi
-          if [ -z "$TOKEN" ]; then
-            echo "No deployment token. Set GitHub secret AZURE_STATIC_WEB_APPS_API_TOKEN_YELLOW_ISLAND_0FEFE051E from Azure Portal → ai-rag-agentic-qa → Manage deployment token." >&2
-            exit 1
-          fi
-          echo "Deployment token length: ${#TOKEN}"
-          echo "::add-mask::$TOKEN"
-          echo "SWA_DEPLOYMENT_TOKEN=$TOKEN" >> "$GITHUB_ENV"
-
-      - name: Get GitHub OIDC token
-        uses: actions/github-script@v7
-        id: idtoken
-        with:
-          script: |
-            return await core.getIDToken('api://AzureADTokenExchange')
-
-      - name: Deploy to Static Web App ai-rag-agentic-qa
-        uses: Azure/static-web-apps-deploy@v1
-        with:
-          azure_static_web_apps_api_token: ${{ env.SWA_DEPLOYMENT_TOKEN }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          action: upload
-          app_location: dist
-          api_location: ""
-          output_location: ""
-          skip_app_build: true
-          production_branch: v1
-          github_id_token: ${{ steps.idtoken.outputs.result }}
-
-  close_pull_request_job:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    name: Close Pull Request Job
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - name: Resolve SWA deployment token
-        env:
-          GH_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_YELLOW_ISLAND_0FEFE051E }}
-        run: |
-          set -euo pipefail
-          TOKEN=$(printf '%s' "$GH_TOKEN" | tr -d '\n\r')
-          echo "::add-mask::$TOKEN"
-          echo "SWA_DEPLOYMENT_TOKEN=$TOKEN" >> "$GITHUB_ENV"
-
-      - name: Close Pull Request
-        uses: Azure/static-web-apps-deploy@v1
-        with:
-          azure_static_web_apps_api_token: ${{ env.SWA_DEPLOYMENT_TOKEN }}
-          action: close
+      - run: echo "Use workflow Deploy QA frontend (ai-rag-agentic-qa) instead."
