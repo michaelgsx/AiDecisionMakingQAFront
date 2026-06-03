@@ -111,17 +111,26 @@ src/
 | Item | Value |
 |------|--------|
 | SWA resource | `ai-rag-agentic-qa` |
+| SWA URL | `https://yellow-island-0fefe051e.7.azurestaticapps.net` |
 | Key Vault | `ai-rag-key` |
 | Deploy token secret | `ai-rag-agentic-qa` |
 
-Workflow: `.github/workflows/deploy-qa-swa.yml` (push to **`main`**).
+**Workflows**
 
-**GitHub Actions secrets:**
+| Branch | Workflow | Deploy token |
+|--------|----------|--------------|
+| `v1` | `.github/workflows/azure-static-web-apps-yellow-island-0fefe051e.yml` | `AZURE_STATIC_WEB_APPS_API_TOKEN_YELLOW_ISLAND_0FEFE051E` |
+| `main` / manual | `.github/workflows/deploy-qa-swa.yml` | Key Vault secret `ai-rag-agentic-qa` |
 
-| Secret | Example |
+Both workflows **pre-build** with `npm run build`, then upload `dist/` with `skip_app_build: true`. Do not set `app_location: /` with empty `output_location` for Vite — Oryx cannot find artifacts.
+
+**GitHub Actions secrets**
+
+| Secret | Purpose |
 |--------|---------|
-| `AZURE_CREDENTIALS` | SP with Key Vault Secrets User on `ai-rag-key` |
-| `VITE_AGENT_API_BASE_URL` | `https://ai-rag-agentic-ai.azurewebsites.net` |
+| `AZURE_CREDENTIALS` | JSON: `{ "tenantId", "clientId", "clientSecret", "subscriptionId" }` — for Key Vault workflow only |
+| `AZURE_KEYVAULT_NAME` | **Vault name only**, e.g. `ai-rag-key` — not SP credentials |
+| `VITE_AGENT_API_BASE_URL` | `https://ai-rag-agentic-ai-h4c6ccfddad5dnd2.westus2-01.azurewebsites.net` |
 | `VITE_OPS_TOKEN` | Same as App Service `OPS_TOKEN` (optional) |
 
 ## Related repos
