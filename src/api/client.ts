@@ -29,6 +29,9 @@ const MOCK_WORKFLOW_MERMAID = `flowchart TD
   classDef wf_completed fill:#d1e7dd,stroke:#198754,color:#0f5132
   class s1,s2,s3 wf_completed`;
 
+/** Max time to poll async chat / run status before giving up (30s). */
+export const FRONTEND_POLL_TIMEOUT_MS = 30_000;
+
 function baseUrl(): string {
   const u = import.meta.env.VITE_AGENT_API_BASE_URL?.trim();
   return u ? u.replace(/\/+$/, "") : "";
@@ -216,18 +219,23 @@ export async function asyncChatPoll(requestId: string): Promise<AsyncChatPollRes
 export async function pollAsyncChatUntilComplete(
   requestId: string,
   onTick?: (s: AsyncChatPollResponse) => void,
-  maxAttempts = 120,
+  timeoutMs = FRONTEND_POLL_TIMEOUT_MS,
   intervalMs = 1500,
 ): Promise<AsyncChatPollResponse> {
-  for (let i = 0; i < maxAttempts; i++) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
     const status = await asyncChatPoll(requestId);
     onTick?.(status);
     if (status.status === "DONE" || status.status === "FAILED") {
       return status;
     }
-    await delay(intervalMs);
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      break;
+    }
+    await delay(Math.min(intervalMs, remaining));
   }
-  return asyncChatPoll(requestId);
+  throw new Error(`Async chat timed out after ${Math.round(timeoutMs / 1000)}s`);
 }
 
 export async function getWorkflowDiagram(runId: string): Promise<string | null> {
@@ -247,10 +255,11 @@ export async function getWorkflowDiagram(runId: string): Promise<string | null> 
 export async function pollUntilComplete(
   runId: string,
   onTick?: (s: RunStatusResponse) => void,
-  maxAttempts = 120,
+  timeoutMs = FRONTEND_POLL_TIMEOUT_MS,
   intervalMs = 500,
 ): Promise<RunStatusResponse> {
-  for (let i = 0; i < maxAttempts; i++) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
     const status = await getRunStatus(runId);
     onTick?.(status);
     if (status.waitingForAsync || status.waitingForHuman) {
@@ -263,9 +272,13 @@ export async function pollUntilComplete(
     ) {
       return status;
     }
-    await delay(intervalMs);
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      break;
+    }
+    await delay(Math.min(intervalMs, remaining));
   }
-  return getRunStatus(runId);
+  throw new Error(`Run polling timed out after ${Math.round(timeoutMs / 1000)}s`);
 }
 
 export async function submitAsyncFeedback(

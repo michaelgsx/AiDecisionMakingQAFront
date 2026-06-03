@@ -307,7 +307,9 @@ export function ChatPage() {
       <div className="chat-toolbar">
         <p className="chat-hint">
           Questions go to the <strong>orchestrator</strong> (
-          {chatMode === "sync" ? "sync execute — blocks until done" : "async chat — poll for progress"}
+          {chatMode === "sync"
+            ? "sync execute — blocks until done"
+            : "async chat — poll up to 30s for progress"}
           ).
         </p>
         <div className="chat-toolbar-actions">
