@@ -23,7 +23,7 @@ The Portal auto-generated workflow (`azure-static-web-apps-yellow-island-0fefe05
 | Secret | Purpose |
 |--------|---------|
 | `AZURE_CREDENTIALS` | SP JSON: `{ "tenantId", "clientId", "clientSecret" }` |
-| `VITE_AGENT_API_BASE_URL` | Agentic API URL (no trailing slash) |
+| `VITE_AGENT_API_BASE_URL` | Agentic API URL (no trailing slash). If unset, CI defaults to `https://ai-rag-agentic-ai-h4c6ccfddad5dnd2.westus2-01.azurewebsites.net` |
 | `VITE_OPS_TOKEN` | Optional; must match backend `OPS_TOKEN` |
 
 Optional repository **variable** (not credentials): `AZURE_KEYVAULT_NAME` = `ai-rag-key`.

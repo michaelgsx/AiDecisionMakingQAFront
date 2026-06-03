@@ -41,6 +41,9 @@ on:
     types: [opened, synchronize, reopened, closed]
     branches: [v1]
 
+env:
+  VITE_AGENT_API_BASE_URL_DEFAULT: https://ai-rag-agentic-ai-h4c6ccfddad5dnd2.westus2-01.azurewebsites.net
+
 jobs:
   build_and_deploy:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
@@ -56,12 +59,30 @@ jobs:
           node-version: "20"
           cache: npm
 
+      - name: Resolve Vite build configuration
+        id: vite
+        run: |
+          set -euo pipefail
+          AGENT_URL='${{ vars.VITE_AGENT_API_BASE_URL }}'
+          if [ -z "$AGENT_URL" ]; then AGENT_URL='${{ secrets.VITE_AGENT_API_BASE_URL }}'; fi
+          if [ -z "$AGENT_URL" ]; then
+            AGENT_URL='${{ env.VITE_AGENT_API_BASE_URL_DEFAULT }}'
+            echo "::notice::VITE_AGENT_API_BASE_URL not set in repo Variables/Secrets; using production default." >&2
+          fi
+          AGENT_URL="${AGENT_URL%/}"
+          echo "agent_api_base_url=$AGENT_URL" >> "$GITHUB_OUTPUT"
+          MOCK='${{ vars.VITE_USE_MOCK }}'
+          if [ -z "$MOCK" ]; then MOCK='${{ secrets.VITE_USE_MOCK }}'; fi
+          if [ -z "$MOCK" ]; then MOCK='false'; fi
+          echo "use_mock=$MOCK" >> "$GITHUB_OUTPUT"
+          echo "Building against agent API: $AGENT_URL (mock=$MOCK)"
+
       - name: Install and build
         run: npm ci && npm run build
         env:
-          VITE_AGENT_API_BASE_URL: ${{ secrets.VITE_AGENT_API_BASE_URL }}
+          VITE_AGENT_API_BASE_URL: ${{ steps.vite.outputs.agent_api_base_url }}
           VITE_OPS_TOKEN: ${{ secrets.VITE_OPS_TOKEN }}
-          VITE_USE_MOCK: ${{ secrets.VITE_USE_MOCK }}
+          VITE_USE_MOCK: ${{ steps.vite.outputs.use_mock }}
 
       - name: Azure CLI login (service principal, Key Vault–friendly)
         env:
