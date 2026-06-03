@@ -1,14 +1,17 @@
 # Azure Static Web Apps: ai-rag-agentic-qa
 # Hostname: yellow-island-0fefe051e.7.azurestaticapps.net
 #
-# This filename is registered with Azure when the SWA was linked to GitHub — do not rename.
-# GitHub-linked SWAs require BOTH deployment token + github_id_token (OIDC).
+# IMPORTANT — Azure "Deployment authorization policy":
+#   - GitHub        → needs valid GitHub repo link + OIDC (repositoryToken on SWA)
+#   - DeploymentToken → accepts deployment token from Key Vault / GitHub secret
+#
+# If deploy fails with "api key was invalid" while policy is GitHub, reconnect GitHub
+# in Azure Portal (Deployment configuration) OR switch policy to Deployment token.
 #
 # Secrets:
-#   AZURE_CREDENTIALS           SP JSON for Key Vault read
-#   AZURE_KEYVAULT_NAME         Optional; vault name only: ai-rag-key
+#   AZURE_STATIC_WEB_APPS_API_TOKEN_YELLOW_ISLAND_0FEFE051E  (from Portal → Manage deployment token)
+#   AZURE_CREDENTIALS + Key Vault ai-rag-key/ai-rag-agentic-qa  (optional fallback)
 #   VITE_AGENT_API_BASE_URL
-#   VITE_OPS_TOKEN              (optional)
 
 name: Azure Static Web Apps CI/CD
 
@@ -49,42 +52,35 @@ jobs:
           VITE_OPS_TOKEN: ${{ secrets.VITE_OPS_TOKEN }}
           VITE_USE_MOCK: ${{ secrets.VITE_USE_MOCK }}
 
-      - name: Azure CLI login
+      - name: Resolve SWA deployment token
         env:
+          GH_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_YELLOW_ISLAND_0FEFE051E }}
           AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
         run: |
           set -euo pipefail
-          command -v jq >/dev/null
-          TID=$(jq -r .tenantId <<<"$AZURE_CREDENTIALS")
-          CID=$(jq -r .clientId <<<"$AZURE_CREDENTIALS")
-          SEC=$(jq -r .clientSecret <<<"$AZURE_CREDENTIALS")
-          if [ -z "$TID" ] || [ "$TID" = "null" ] || [ -z "$CID" ] || [ "$CID" = "null" ] || [ -z "$SEC" ] || [ "$SEC" = "null" ]; then
-            echo "AZURE_CREDENTIALS must be JSON with tenantId, clientId, clientSecret." >&2
-            exit 1
+          TOKEN=""
+          if [ -n "${GH_TOKEN:-}" ]; then
+            TOKEN=$(printf '%s' "$GH_TOKEN" | tr -d '\n\r')
+            echo "Using GitHub secret AZURE_STATIC_WEB_APPS_API_TOKEN_YELLOW_ISLAND_0FEFE051E"
           fi
-          az login --service-principal -u "$CID" -p "$SEC" --tenant "$TID" --allow-no-subscriptions
-
-      - name: Fetch SWA deployment token from Key Vault (ai-rag-agentic-qa)
-        run: |
-          set -euo pipefail
-          VAULT='${{ vars.AZURE_KEYVAULT_NAME }}'
-          if [ -z "$VAULT" ]; then VAULT='${{ secrets.AZURE_KEYVAULT_NAME }}'; fi
-          if [ -z "$VAULT" ]; then VAULT='${{ env.AZURE_KEYVAULT_NAME }}'; fi
-          case "$VAULT" in
-            '{'*)
-              echo "AZURE_KEYVAULT_NAME must be vault name only (ai-rag-key), not SP JSON." >&2
-              exit 1
-              ;;
-          esac
-          TOKEN=$(az keyvault secret show \
-            --vault-name "$VAULT" \
-            --name '${{ env.KEYVAULT_SECRET_NAME }}' \
-            --query value -o tsv | tr -d '\n\r')
+          if [ -z "$TOKEN" ] && [ -n "${AZURE_CREDENTIALS:-}" ]; then
+            command -v jq >/dev/null
+            TID=$(jq -r .tenantId <<<"$AZURE_CREDENTIALS")
+            CID=$(jq -r .clientId <<<"$AZURE_CREDENTIALS")
+            SEC=$(jq -r .clientSecret <<<"$AZURE_CREDENTIALS")
+            az login --service-principal -u "$CID" -p "$SEC" --tenant "$TID" --allow-no-subscriptions
+            VAULT='${{ vars.AZURE_KEYVAULT_NAME }}'
+            if [ -z "$VAULT" ]; then VAULT='${{ secrets.AZURE_KEYVAULT_NAME }}'; fi
+            if [ -z "$VAULT" ]; then VAULT='${{ env.AZURE_KEYVAULT_NAME }}'; fi
+            case "$VAULT" in '{'*) VAULT='ai-rag-key' ;; esac
+            TOKEN=$(az keyvault secret show --vault-name "$VAULT" --name '${{ env.KEYVAULT_SECRET_NAME }}' --query value -o tsv | tr -d '\n\r')
+            echo "Using Key Vault secret ${{ env.KEYVAULT_SECRET_NAME }} from $VAULT"
+          fi
           if [ -z "$TOKEN" ]; then
-            echo "Empty secret ${{ env.KEYVAULT_SECRET_NAME }} in vault $VAULT" >&2
+            echo "No deployment token. Set GitHub secret AZURE_STATIC_WEB_APPS_API_TOKEN_YELLOW_ISLAND_0FEFE051E from Azure Portal → ai-rag-agentic-qa → Manage deployment token." >&2
             exit 1
           fi
-          echo "Fetched deployment token for SWA ai-rag-agentic-qa (length ${#TOKEN})"
+          echo "Deployment token length: ${#TOKEN}"
           echo "::add-mask::$TOKEN"
           echo "SWA_DEPLOYMENT_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
@@ -116,26 +112,12 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - name: Azure CLI login
+      - name: Resolve SWA deployment token
         env:
-          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+          GH_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_YELLOW_ISLAND_0FEFE051E }}
         run: |
           set -euo pipefail
-          TID=$(jq -r .tenantId <<<"${{ secrets.AZURE_CREDENTIALS }}")
-          CID=$(jq -r .clientId <<<"${{ secrets.AZURE_CREDENTIALS }}")
-          SEC=$(jq -r .clientSecret <<<"${{ secrets.AZURE_CREDENTIALS }}")
-          az login --service-principal -u "$CID" -p "$SEC" --tenant "$TID" --allow-no-subscriptions
-
-      - name: Fetch SWA deployment token from Key Vault
-        run: |
-          set -euo pipefail
-          VAULT='${{ vars.AZURE_KEYVAULT_NAME }}'
-          if [ -z "$VAULT" ]; then VAULT='${{ secrets.AZURE_KEYVAULT_NAME }}'; fi
-          if [ -z "$VAULT" ]; then VAULT='${{ env.AZURE_KEYVAULT_NAME }}'; fi
-          TOKEN=$(az keyvault secret show \
-            --vault-name "$VAULT" \
-            --name '${{ env.KEYVAULT_SECRET_NAME }}' \
-            --query value -o tsv | tr -d '\n\r')
+          TOKEN=$(printf '%s' "$GH_TOKEN" | tr -d '\n\r')
           echo "::add-mask::$TOKEN"
           echo "SWA_DEPLOYMENT_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
