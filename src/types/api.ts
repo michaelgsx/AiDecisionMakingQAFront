@@ -62,6 +62,24 @@ export type ExecuteRequest = {
   transactionId?: string;
 };
 
+export type AsyncChatSubmitResponse = {
+  requestId: string;
+  status: string;
+  pollPath: string;
+};
+
+export type AsyncChatPollResponse = {
+  requestId: string;
+  status: string;
+  statusDetail: string;
+  question: string;
+  answer?: string;
+  runId?: string;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ExecuteResponse = {
   runId: string;
   workflowId: string;

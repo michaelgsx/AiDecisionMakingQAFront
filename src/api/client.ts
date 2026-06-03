@@ -1,6 +1,8 @@
 import type {
   AskRequest,
   AskResponse,
+  AsyncChatPollResponse,
+  AsyncChatSubmitResponse,
   EvaluationListResponse,
   EvaluationReviewRequest,
   EvaluationStatusFilter,
@@ -161,6 +163,71 @@ export async function executeWorkflow(body: ExecuteRequest): Promise<ExecuteResp
   const data = await parseJson<ExecuteResponse & { message?: string; error?: string }>(res);
   if (!res.ok) throw new Error(data.message ?? data.error ?? `HTTP ${res.status}`);
   return data;
+}
+
+export async function asyncChatSubmit(body: ExecuteRequest): Promise<AsyncChatSubmitResponse> {
+  const root = baseUrl();
+  if (!root && useMock()) {
+    await delay(200);
+    const requestId = crypto.randomUUID();
+    return {
+      requestId,
+      status: "PLANNING",
+      pollPath: `/agent/async-chat/${requestId}`,
+    };
+  }
+  if (!root) throw new Error("Set VITE_AGENT_API_BASE_URL or VITE_USE_MOCK=true");
+
+  const res = await fetch(`${root}/agent/async-chat`, {
+    method: "POST",
+    headers: opsHeaders(),
+    body: JSON.stringify(body),
+  });
+  const data = await parseJson<AsyncChatSubmitResponse & { message?: string; error?: string }>(res);
+  if (!res.ok) throw new Error(data.message ?? data.error ?? `HTTP ${res.status}`);
+  return data;
+}
+
+export async function asyncChatPoll(requestId: string): Promise<AsyncChatPollResponse> {
+  const root = baseUrl();
+  if (!root && useMock()) {
+    await delay(300);
+    return {
+      requestId,
+      status: "DONE",
+      statusDetail: "done",
+      question: "mock",
+      answer: "(Mock) Async chat completed with a demo answer.",
+      runId: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+  if (!root) throw new Error("Set VITE_AGENT_API_BASE_URL or VITE_USE_MOCK=true");
+
+  const res = await fetch(`${root}/agent/async-chat/${encodeURIComponent(requestId)}`, {
+    headers: opsHeaders(),
+  });
+  const data = await parseJson<AsyncChatPollResponse & { message?: string; error?: string }>(res);
+  if (!res.ok) throw new Error(data.message ?? data.error ?? `HTTP ${res.status}`);
+  return data;
+}
+
+export async function pollAsyncChatUntilComplete(
+  requestId: string,
+  onTick?: (s: AsyncChatPollResponse) => void,
+  maxAttempts = 120,
+  intervalMs = 1500,
+): Promise<AsyncChatPollResponse> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const status = await asyncChatPoll(requestId);
+    onTick?.(status);
+    if (status.status === "DONE" || status.status === "FAILED") {
+      return status;
+    }
+    await delay(intervalMs);
+  }
+  return asyncChatPoll(requestId);
 }
 
 export async function getWorkflowDiagram(runId: string): Promise<string | null> {

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  asyncChatSubmit,
   executeWorkflow,
+  getRunStatus,
   getWorkflowDiagram,
+  pollAsyncChatUntilComplete,
   pollUntilComplete,
   submitFeedback,
   submitHumanResponse,
@@ -34,24 +37,28 @@ function firstInputRequired(tick: RunStatusResponse): HumanApprovalDto | null {
 }
 
 function assistantMessage(
-  runId: string,
+  id: string,
   tick: Pick<RunStatusResponse, "status" | "answer" | "error" | "workflowMermaid" | "workflowJson" | "steps">,
 ): Msg {
   return {
-    id: runId,
+    id,
     role: "assistant",
     content: tick.answer ?? tick.error ?? "(No answer produced)",
     status: tick.status,
-    workflow: buildWorkflowSnapshot(runId, tick),
+    workflow: buildWorkflowSnapshot(id, tick),
   };
 }
 
+type ChatMode = "sync" | "async";
+
 export function ChatPage() {
+  const [chatMode, setChatMode] = useState<ChatMode>("sync");
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [runStatus, setRunStatus] = useState<string | null>(null);
+  const [statusDetail, setStatusDetail] = useState<string | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [pendingApproval, setPendingApproval] = useState<HumanApprovalDto | null>(null);
   const [humanLoading, setHumanLoading] = useState(false);
@@ -63,11 +70,22 @@ export function ChatPage() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading, runStatus, activeWorkflow]);
+  }, [messages, loading, runStatus, statusDetail, activeWorkflow]);
 
   const applyWorkflowTick = (runId: string, tick: Pick<RunStatusResponse, "status" | "workflowMermaid" | "workflowJson" | "steps" | "answer" | "error">) => {
     setRunStatus(tick.status);
     setActiveWorkflow(buildWorkflowSnapshot(runId, tick));
+  };
+
+  const loadRunWorkflow = async (runId: string) => {
+    try {
+      const tick = await getRunStatus(runId);
+      applyWorkflowTick(runId, tick);
+      await ensureWorkflowDiagram(runId, tick);
+      return tick;
+    } catch {
+      return null;
+    }
   };
 
   const ensureWorkflowDiagram = async (
@@ -98,11 +116,68 @@ export function ChatPage() {
     setError(null);
     setLoading(true);
     setRunStatus("PENDING");
+    setStatusDetail(null);
     setPendingApproval(null);
     setActiveRunId(null);
     setActiveWorkflow(null);
 
     try {
+      if (chatMode === "async") {
+        const submitted = await asyncChatSubmit({
+          question: text,
+          conversationId,
+        });
+        setConversationId(conversationId ?? submitted.requestId);
+        setRunStatus(submitted.status);
+        setStatusDetail("planning");
+
+        const final = await pollAsyncChatUntilComplete(submitted.requestId, (tick) => {
+          setRunStatus(tick.status);
+          setStatusDetail(tick.statusDetail);
+          if (tick.runId) {
+            setActiveRunId(tick.runId);
+            void loadRunWorkflow(tick.runId);
+          }
+        });
+
+        if (final.status === "FAILED") {
+          throw new Error(final.errorMessage ?? "Async chat failed");
+        }
+
+        const messageId = final.runId ?? submitted.requestId;
+        if (final.runId) {
+          const runTick = await loadRunWorkflow(final.runId);
+          setMessages((m) => [
+            ...m,
+            assistantMessage(messageId, {
+              status: "COMPLETED",
+              answer: final.answer ?? runTick?.answer,
+              error: final.errorMessage,
+              workflowMermaid: runTick?.workflowMermaid,
+              workflowJson: runTick?.workflowJson,
+              steps: runTick?.steps ?? [],
+            }),
+          ]);
+        } else {
+          setMessages((m) => [
+            ...m,
+            {
+              id: messageId,
+              role: "assistant",
+              content: final.answer ?? "(No answer produced)",
+              status: final.status,
+            },
+          ]);
+        }
+
+        setRunStatus(final.status);
+        setStatusDetail(final.statusDetail);
+        setPendingApproval(null);
+        setActiveRunId(null);
+        setActiveWorkflow(null);
+        return;
+      }
+
       const result = await executeWorkflow({
         question: text,
         conversationId,
@@ -134,7 +209,7 @@ export function ChatPage() {
       setLoading(false);
       textareaRef.current?.focus();
     }
-  }, [conversationId, input, loading]);
+  }, [chatMode, conversationId, input, loading]);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -219,6 +294,7 @@ export function ChatPage() {
     setError(null);
     setInput("");
     setRunStatus(null);
+    setStatusDetail(null);
     setPendingApproval(null);
     setActiveRunId(null);
     setActiveWorkflow(null);
@@ -230,16 +306,40 @@ export function ChatPage() {
     <div className="chat-page">
       <div className="chat-toolbar">
         <p className="chat-hint">
-          Questions go to the <strong>orchestrator</strong> (plan → validate → execute sync workflow).
+          Questions go to the <strong>orchestrator</strong> (
+          {chatMode === "sync" ? "sync execute — blocks until done" : "async chat — poll for progress"}
+          ).
         </p>
-        <button type="button" className="btn-ghost" onClick={newChat}>
-          New chat
-        </button>
+        <div className="chat-toolbar-actions">
+          <div className="chat-mode-toggle" role="group" aria-label="Chat mode">
+            <button
+              type="button"
+              className={chatMode === "sync" ? "mode-btn active" : "mode-btn"}
+              onClick={() => setChatMode("sync")}
+              disabled={loading}
+            >
+              Sync chat
+            </button>
+            <button
+              type="button"
+              className={chatMode === "async" ? "mode-btn active" : "mode-btn"}
+              onClick={() => setChatMode("async")}
+              disabled={loading}
+            >
+              Async chat
+            </button>
+          </div>
+          <button type="button" className="btn-ghost" onClick={newChat}>
+            New chat
+          </button>
+        </div>
       </div>
 
       {runStatus && (loading || pendingApproval) && (
         <p className="chat-status">
-          Orchestrator: {pendingApproval ? "waiting for your approval" : runStatus}
+          {chatMode === "async" && statusDetail
+            ? `Async: ${statusDetail}`
+            : `Orchestrator: ${pendingApproval ? "waiting for your approval" : runStatus}`}
         </p>
       )}
 
@@ -279,7 +379,11 @@ export function ChatPage() {
                 <span className="dot" />
                 <span className="dot" />
               </div>
-              <p className="chat-loading-label">Planning and executing workflow…</p>
+              <p className="chat-loading-label">
+                {chatMode === "async" && statusDetail
+                  ? statusDetail
+                  : "Planning and executing workflow…"}
+              </p>
             </div>
           </div>
         )}

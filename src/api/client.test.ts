@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  asyncChatPoll,
+  asyncChatSubmit,
   getRunStatus,
   getWorkflowDiagram,
   listTools,
+  pollAsyncChatUntilComplete,
   pollUntilComplete,
   registerTool,
   submitQuestion,
@@ -49,6 +52,31 @@ describe("api client", () => {
     const final = await pollUntilComplete(crypto.randomUUID(), (s) => ticks.push(s.status));
     expect(final.status).toBe("COMPLETED");
     expect(ticks).toContain("COMPLETED");
+  });
+
+  it("asyncChatSubmit in mock mode returns requestId and pollPath", async () => {
+    const res = await asyncChatSubmit({ question: "async question?" });
+    expect(res.requestId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+    expect(res.status).toBe("PLANNING");
+    expect(res.pollPath).toContain(res.requestId);
+  });
+
+  it("asyncChatPoll in mock mode returns DONE status", async () => {
+    const requestId = crypto.randomUUID();
+    const res = await asyncChatPoll(requestId);
+    expect(res.requestId).toBe(requestId);
+    expect(res.status).toBe("DONE");
+    expect(res.statusDetail).toBe("done");
+    expect(res.answer).toBeTruthy();
+  });
+
+  it("pollAsyncChatUntilComplete in mock mode resolves immediately", async () => {
+    const ticks: string[] = [];
+    const final = await pollAsyncChatUntilComplete(crypto.randomUUID(), (s) => ticks.push(s.status));
+    expect(final.status).toBe("DONE");
+    expect(ticks).toContain("DONE");
   });
 
   it("listTools in mock mode returns registry entries", async () => {
