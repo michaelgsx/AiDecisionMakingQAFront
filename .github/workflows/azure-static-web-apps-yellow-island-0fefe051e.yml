@@ -93,7 +93,6 @@ jobs:
         id: idtoken
         with:
           script: |
-            const core = require('@actions/core')
             return await core.getIDToken('api://AzureADTokenExchange')
 
       - name: Deploy to Static Web App ai-rag-agentic-qa
