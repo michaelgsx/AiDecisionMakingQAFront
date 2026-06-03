@@ -45,6 +45,30 @@ header {
   backdrop-filter: blur(10px);
 }
 
+.api-status-banner {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0.65rem 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #ffd4d4;
+  background: rgba(232, 93, 93, 0.12);
+  border-bottom: 1px solid rgba(232, 93, 93, 0.35);
+}
+
+.api-status-banner code {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.api-status-hint {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .header-inner {
   max-width: 960px;
   margin: 0 auto;

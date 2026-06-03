@@ -1,12 +1,29 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChatPage } from "./pages/ChatPage";
 import { EvaluationPage } from "./pages/EvaluationPage";
 import { ToolRegistryPage } from "./pages/ToolRegistryPage";
+import { checkAgentHealth, type AgentConnectivity } from "./api/client";
 
 type Tab = "chat" | "evaluation" | "tools";
 
 export function App() {
   const [tab, setTab] = useState<Tab>("chat");
+  const [connectivity, setConnectivity] = useState<AgentConnectivity | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void checkAgentHealth().then((status) => {
+      if (!cancelled) setConnectivity(status);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const showConnectivityBanner =
+    connectivity &&
+    connectivity.state !== "ok" &&
+    connectivity.state !== "mock";
 
   return (
     <div className="app-shell">
@@ -39,6 +56,21 @@ export function App() {
           <span className="header-sub">Agentic AI · AiDecisionMakingAgenticAI</span>
         </div>
       </header>
+      {showConnectivityBanner && connectivity && (
+        <div className="api-status-banner" role="status">
+          <strong>Backend unreachable.</strong> {connectivity.message}
+          {connectivity.apiUrl && (
+            <>
+              {" "}
+              API: <code>{connectivity.apiUrl}</code>
+            </>
+          )}
+          <span className="api-status-hint">
+            Service Principal is only for GitHub deploy — browser calls the API directly. Retry after
+            backend deploy finishes or use Async chat.
+          </span>
+        </div>
+      )}
       <main>
         {tab === "chat" && <ChatPage />}
         {tab === "evaluation" && <EvaluationPage />}

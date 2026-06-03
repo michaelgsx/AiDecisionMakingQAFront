@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   asyncChatPoll,
   asyncChatSubmit,
+  checkAgentHealth,
   getRunStatus,
   getWorkflowDiagram,
   listTools,
@@ -21,6 +22,11 @@ describe("api client", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
+  });
+
+  it("checkAgentHealth in mock mode reports mock", async () => {
+    const status = await checkAgentHealth();
+    expect(status.state).toBe("mock");
   });
 
   it("submitQuestion in mock mode returns runId and pollPath", async () => {

@@ -32,6 +32,12 @@ const MOCK_WORKFLOW_MERMAID = `flowchart TD
 /** Max time to poll async chat / run status before giving up (30s). */
 export const FRONTEND_POLL_TIMEOUT_MS = 30_000;
 
+export type AgentConnectivity = {
+  state: "mock" | "ok" | "unreachable" | "error" | "no-url";
+  message: string;
+  apiUrl?: string;
+};
+
 function baseUrl(): string {
   const u = import.meta.env.VITE_AGENT_API_BASE_URL?.trim();
   return u ? u.replace(/\/+$/, "") : "";
@@ -39,6 +45,48 @@ function baseUrl(): string {
 
 function useMock(): boolean {
   return import.meta.env.VITE_USE_MOCK === "true";
+}
+
+export function getAgentApiBaseUrl(): string {
+  return baseUrl();
+}
+
+/** Ping GET /health — used on page load to surface backend reachability (not SP/auth for deploy). */
+export async function checkAgentHealth(timeoutMs = 12_000): Promise<AgentConnectivity> {
+  if (useMock()) {
+    return { state: "mock", message: "Mock mode — API calls are simulated." };
+  }
+  const apiUrl = baseUrl();
+  if (!apiUrl) {
+    return { state: "no-url", message: "VITE_AGENT_API_BASE_URL is not set in this build." };
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${apiUrl}/health`, {
+      signal: controller.signal,
+      headers: opsHeaders(),
+    });
+    if (res.ok) {
+      return { state: "ok", message: "Backend reachable.", apiUrl };
+    }
+    return {
+      state: "error",
+      message: `Backend returned HTTP ${res.status}. Check App Service logs.`,
+      apiUrl,
+    };
+  } catch (e) {
+    const timedOut = e instanceof Error && e.name === "AbortError";
+    return {
+      state: "unreachable",
+      message: timedOut
+        ? "Backend did not respond in time — App Service cold start on B1 can take 5–8 minutes after deploy."
+        : "Cannot reach backend (server down, still starting, or browser blocked the request).",
+      apiUrl,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function opsHeaders(): HeadersInit {
