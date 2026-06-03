@@ -117,10 +117,10 @@ src/
 
 **Workflows**
 
-| Branch | Workflow | Deploy token |
-|--------|----------|--------------|
-| `v1` | `.github/workflows/azure-static-web-apps-yellow-island-0fefe051e.yml` | Fetched at runtime via `AZURE_CREDENTIALS` |
-| `main` / manual | `.github/workflows/deploy-qa-swa.yml` | Same (Azure SWA API, Key Vault fallback) |
+| Branch | Workflow | Deploy token source |
+|--------|----------|---------------------|
+| `v1` | `.github/workflows/azure-static-web-apps-yellow-island-0fefe051e.yml` | Key Vault `ai-rag-key` / `ai-rag-agentic-qa` |
+| `main` / manual | `.github/workflows/deploy-qa-swa.yml` | Same |
 
 Both workflows pre-build with `npm run build`, then upload `dist/` with `skip_app_build: true`.
 
@@ -128,10 +128,12 @@ Both workflows pre-build with `npm run build`, then upload `dist/` with `skip_ap
 
 | Secret | Purpose |
 |--------|---------|
-| `AZURE_CREDENTIALS` | JSON: `{ "tenantId", "clientId", "clientSecret", "subscriptionId" }` — used to fetch a fresh SWA deployment token |
-| `AZURE_KEYVAULT_NAME` | **Vault name only**, e.g. `ai-rag-key` (optional fallback if SWA API fetch fails) |
+| `AZURE_CREDENTIALS` | Service principal JSON for `az login`: `{ "tenantId", "clientId", "clientSecret" }` (subscriptionId optional) |
+| `AZURE_KEYVAULT_NAME` | Optional repository variable or secret; **vault name only** `ai-rag-key` — not credentials |
 | `VITE_AGENT_API_BASE_URL` | `https://ai-rag-agentic-ai-h4c6ccfddad5dnd2.westus2-01.azurewebsites.net` |
 | `VITE_OPS_TOKEN` | Same as App Service `OPS_TOKEN` (optional) |
+
+The SP needs **Key Vault Secrets User** on `ai-rag-key`. Do not use the old `AZURE_STATIC_WEB_APPS_API_TOKEN_*` GitHub secret.
 
 ## Related repos
 
