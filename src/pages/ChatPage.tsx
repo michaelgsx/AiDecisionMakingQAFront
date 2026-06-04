@@ -21,7 +21,9 @@ import type {
 import { buildWorkflowSnapshot } from "../utils/workflowSnapshot";
 import { progressLabel } from "../utils/progress";
 
-function firstInputRequired(tick: RunStatusResponse): HumanApprovalDto | null {
+function firstInputRequired(
+  tick: Partial<Pick<RunStatusResponse, "pendingAsync" | "pendingApprovals">>,
+): HumanApprovalDto | null {
   const async = tick.pendingAsync?.find((p) => p.asyncKind === "INPUT_REQUIRED");
   if (async) {
     return {
@@ -31,7 +33,7 @@ function firstInputRequired(tick: RunStatusResponse): HumanApprovalDto | null {
       proposal: async.proposal ?? "",
     };
   }
-  if (tick.pendingApprovals?.length > 0) {
+  if (tick.pendingApprovals && tick.pendingApprovals.length > 0) {
     return tick.pendingApprovals[0];
   }
   return null;
@@ -189,16 +191,38 @@ export function ChatPage() {
       await ensureWorkflowDiagram(result.runId, result);
 
       if (result.waitingForAsync) {
+        setPendingApproval(firstInputRequired(result));
         setLoading(false);
         return;
       }
 
-      if (result.status === "FAILED") {
-        throw new Error(result.error ?? "Orchestrator run failed");
+      // /agent/execute has a short server-side budget and the background worker may own
+      // the run, so it can return RUNNING/PENDING before the answer is ready. Keep polling
+      // the run status until it finishes (or pauses for human input) so the answer shows.
+      let finalTick: Pick<
+        RunStatusResponse,
+        "status" | "answer" | "error" | "workflowMermaid" | "workflowJson" | "steps"
+      > = result;
+      if (result.status !== "COMPLETED" && result.status !== "FAILED") {
+        const polled = await pollUntilComplete(result.runId, (tick) => {
+          applyWorkflowTick(result.runId, tick);
+          setPendingApproval(firstInputRequired(tick));
+        });
+        await ensureWorkflowDiagram(result.runId, polled);
+        if (polled.waitingForAsync || polled.waitingForHuman) {
+          setPendingApproval(firstInputRequired(polled));
+          setLoading(false);
+          return;
+        }
+        finalTick = polled;
       }
 
-      setMessages((m) => [...m, assistantMessage(result.runId, result)]);
-      setRunStatus(result.status);
+      if (finalTick.status === "FAILED") {
+        throw new Error(finalTick.error ?? "Orchestrator run failed");
+      }
+
+      setMessages((m) => [...m, assistantMessage(result.runId, finalTick)]);
+      setRunStatus(finalTick.status);
       setPendingApproval(null);
       setActiveRunId(null);
       setActiveWorkflow(null);
