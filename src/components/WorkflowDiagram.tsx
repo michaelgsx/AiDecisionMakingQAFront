@@ -10,9 +10,22 @@ function ensureMermaid() {
       theme: "dark",
       securityLevel: "loose",
       flowchart: { curve: "basis" },
+      // Stop Mermaid from injecting its "Syntax error in text" bomb SVG into the
+      // document body when a render (or its lazy-loaded renderer chunk) fails.
+      suppressErrorRendering: true,
     });
     mermaidReady = true;
   }
+}
+
+function describeRenderError(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  // Mermaid lazy-loads each diagram renderer as a hashed chunk; after a redeploy a
+  // stale page can request a chunk hash that no longer exists, so the import 404s.
+  if (/dynamically imported module|Failed to fetch|importing a module script failed/i.test(msg)) {
+    return "Diagram renderer could not load (the app was updated). Refresh the page to load the latest version.";
+  }
+  return "Could not render the workflow diagram.";
 }
 
 type Props = {
@@ -44,7 +57,9 @@ export function WorkflowDiagram({ source, steps, annotation }: Props) {
         setRenderError(null);
       } catch (e) {
         if (!cancelled) {
-          setRenderError(e instanceof Error ? e.message : "Could not render diagram");
+          // Clear any partial output so a broken render never lingers in the panel.
+          if (hostRef.current) hostRef.current.innerHTML = "";
+          setRenderError(describeRenderError(e));
         }
       }
     })();
