@@ -54,11 +54,13 @@ function assistantMessage(
 
 type ChatMode = "sync" | "async";
 
+const DEFAULT_QUESTION = "show me the information of user 'user-001'";
+
 export function ChatPage() {
   const [chatMode, setChatMode] = useState<ChatMode>("sync");
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [messages, setMessages] = useState<Msg[]>([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(DEFAULT_QUESTION);
   const [loading, setLoading] = useState(false);
   const [runStatus, setRunStatus] = useState<string | null>(null);
   const [statusDetail, setStatusDetail] = useState<string | null>(null);
@@ -317,7 +319,7 @@ export function ChatPage() {
     setConversationId(undefined);
     setMessages([]);
     setError(null);
-    setInput("");
+    setInput(DEFAULT_QUESTION);
     setRunStatus(null);
     setStatusDetail(null);
     setPendingApproval(null);
