@@ -33,11 +33,14 @@ type Props = {
   steps?: { stepKey: string; toolName: string; status: string }[];
   /** Live phase text shown next to the panel title while the run is in progress. */
   annotation?: string | null;
+  /** Whether the panel starts expanded. Defaults to collapsed; click the summary to open. */
+  defaultOpen?: boolean;
 };
 
-export function WorkflowDiagram({ source, steps, annotation }: Props) {
+export function WorkflowDiagram({ source, steps, annotation, defaultOpen = false }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
+  const [open, setOpen] = useState(defaultOpen);
 
   useEffect(() => {
     if (!source?.trim() || !hostRef.current) {
@@ -74,7 +77,11 @@ export function WorkflowDiagram({ source, steps, annotation }: Props) {
   }
 
   return (
-    <details className="workflow-panel" open>
+    <details
+      className="workflow-panel"
+      open={open}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+    >
       <summary>
         <span className="workflow-title">Workflow DAG</span>
         {annotation && <span className="workflow-annotation">{annotation}</span>}

@@ -372,6 +372,7 @@ export function ChatPage() {
           source={activeWorkflow.workflowMermaid}
           steps={activeWorkflow.steps}
           annotation={loading || pendingApproval ? progress : null}
+          defaultOpen
         />
       )}
 
