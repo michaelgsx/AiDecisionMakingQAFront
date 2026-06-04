@@ -18,9 +18,11 @@ function ensureMermaid() {
 type Props = {
   source: string | null | undefined;
   steps?: { stepKey: string; toolName: string; status: string }[];
+  /** Live phase text shown next to the panel title while the run is in progress. */
+  annotation?: string | null;
 };
 
-export function WorkflowDiagram({ source, steps }: Props) {
+export function WorkflowDiagram({ source, steps, annotation }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
 
@@ -58,7 +60,10 @@ export function WorkflowDiagram({ source, steps }: Props) {
 
   return (
     <details className="workflow-panel" open>
-      <summary>Workflow DAG</summary>
+      <summary>
+        <span className="workflow-title">Workflow DAG</span>
+        {annotation && <span className="workflow-annotation">{annotation}</span>}
+      </summary>
       {steps && steps.length > 0 && (
         <ul className="workflow-steps" aria-label="Step statuses">
           {steps.map((s) => (

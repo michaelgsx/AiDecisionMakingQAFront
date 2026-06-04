@@ -351,7 +351,11 @@ export function ChatPage() {
       )}
 
       {showLiveWorkflow && (
-        <WorkflowDiagram source={activeWorkflow.workflowMermaid} steps={activeWorkflow.steps} />
+        <WorkflowDiagram
+          source={activeWorkflow.workflowMermaid}
+          steps={activeWorkflow.steps}
+          annotation={loading || pendingApproval ? progress : null}
+        />
       )}
 
       {pendingApproval && (
