@@ -37,6 +37,8 @@ export type PendingAsyncDto = {
 export type RunStatusResponse = {
   runId: string;
   status: string;
+  /** Fine-grained phase: planning, executing/{stepKey}/{toolName}, llm-answering, done, failed, queued, waiting. */
+  statusDetail?: string;
   question: string;
   answer?: string;
   error?: string;
@@ -84,6 +86,7 @@ export type ExecuteResponse = {
   runId: string;
   workflowId: string;
   status: string;
+  statusDetail?: string;
   completed: boolean;
   waitingForAsync: boolean;
   question: string;

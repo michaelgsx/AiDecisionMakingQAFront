@@ -45,20 +45,33 @@ export function progressLabel(input: ProgressInput): string {
     return "Waiting on a long-running tool to report back…";
   }
 
-  // Async chat path: statusDetail carries the most specific phase.
+  // statusDetail carries the most specific phase (async-chat poll or run poll).
   if (statusDetail) {
     const detail = statusDetail.trim();
+    if (detail === "queued") {
+      return "Queued — a worker is about to pick this up…";
+    }
     if (detail === "planning") {
       return "Planning the workflow — choosing the right tools…";
     }
     if (detail === "llm-answering") {
       return "Composing the final answer…";
     }
+    if (detail === "executing") {
+      const step = describeRunningStep(steps);
+      return step ? `Running: ${step}` : "Executing the workflow…";
+    }
+    if (detail === "waiting") {
+      return "Waiting on a long-running tool to report back…";
+    }
     if (detail === "done") {
       return "Wrapping up…";
     }
     if (detail === "failed") {
       return "The run hit an error.";
+    }
+    if (detail === "cancelled") {
+      return "The run was cancelled.";
     }
     if (detail.startsWith("executing/")) {
       // executing/{stepKey}/{toolName}

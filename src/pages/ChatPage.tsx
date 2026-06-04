@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   asyncChatSubmit,
-  executeWorkflow,
   getRunStatus,
   getWorkflowDiagram,
   pollAsyncChatUntilComplete,
   pollUntilComplete,
   submitFeedback,
   submitHumanResponse,
+  submitQuestion,
 } from "../api/client";
 import { ChatMessage } from "../components/ChatMessage";
 import { HumanApprovalPanel } from "../components/HumanApprovalPanel";
@@ -77,8 +77,15 @@ export function ChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading, runStatus, statusDetail, activeWorkflow]);
 
-  const applyWorkflowTick = (runId: string, tick: Pick<RunStatusResponse, "status" | "workflowMermaid" | "workflowJson" | "steps" | "answer" | "error">) => {
+  const applyWorkflowTick = (
+    runId: string,
+    tick: Pick<
+      RunStatusResponse,
+      "status" | "statusDetail" | "workflowMermaid" | "workflowJson" | "steps" | "answer" | "error"
+    >,
+  ) => {
     setRunStatus(tick.status);
+    setStatusDetail(tick.statusDetail ?? null);
     setActiveWorkflow(buildWorkflowSnapshot(runId, tick));
   };
 
@@ -183,48 +190,32 @@ export function ChatPage() {
         return;
       }
 
-      const result = await executeWorkflow({
-        question: text,
-        conversationId,
-      });
-      setConversationId(conversationId ?? result.runId);
-      setActiveRunId(result.runId);
-      applyWorkflowTick(result.runId, result);
-      await ensureWorkflowDiagram(result.runId, result);
+      // Submit non-blocking (/agent/ask) and poll the run so the detailed phase
+      // (planning → executing/{step}/{tool} → llm-answering → done) streams live,
+      // instead of blocking on /agent/execute where only the optimistic status shows.
+      const submitted = await submitQuestion({ question: text, conversationId });
+      setConversationId(conversationId ?? submitted.runId);
+      setActiveRunId(submitted.runId);
+      setRunStatus(submitted.status);
+      void loadRunWorkflow(submitted.runId);
 
-      if (result.waitingForAsync) {
-        setPendingApproval(firstInputRequired(result));
+      const polled = await pollUntilComplete(submitted.runId, (tick) => {
+        applyWorkflowTick(submitted.runId, tick);
+        setPendingApproval(firstInputRequired(tick));
+      });
+      await ensureWorkflowDiagram(submitted.runId, polled);
+
+      if (polled.waitingForAsync || polled.waitingForHuman) {
+        setPendingApproval(firstInputRequired(polled));
         setLoading(false);
         return;
       }
-
-      // /agent/execute has a short server-side budget and the background worker may own
-      // the run, so it can return RUNNING/PENDING before the answer is ready. Keep polling
-      // the run status until it finishes (or pauses for human input) so the answer shows.
-      let finalTick: Pick<
-        RunStatusResponse,
-        "status" | "answer" | "error" | "workflowMermaid" | "workflowJson" | "steps"
-      > = result;
-      if (result.status !== "COMPLETED" && result.status !== "FAILED") {
-        const polled = await pollUntilComplete(result.runId, (tick) => {
-          applyWorkflowTick(result.runId, tick);
-          setPendingApproval(firstInputRequired(tick));
-        });
-        await ensureWorkflowDiagram(result.runId, polled);
-        if (polled.waitingForAsync || polled.waitingForHuman) {
-          setPendingApproval(firstInputRequired(polled));
-          setLoading(false);
-          return;
-        }
-        finalTick = polled;
+      if (polled.status === "FAILED") {
+        throw new Error(polled.error ?? "Orchestrator run failed");
       }
 
-      if (finalTick.status === "FAILED") {
-        throw new Error(finalTick.error ?? "Orchestrator run failed");
-      }
-
-      setMessages((m) => [...m, assistantMessage(result.runId, finalTick)]);
-      setRunStatus(finalTick.status);
+      setMessages((m) => [...m, assistantMessage(submitted.runId, polled)]);
+      setRunStatus(polled.status);
       setPendingApproval(null);
       setActiveRunId(null);
       setActiveWorkflow(null);
@@ -343,7 +334,7 @@ export function ChatPage() {
         <p className="chat-hint">
           Questions go to the <strong>orchestrator</strong> (
           {chatMode === "sync"
-            ? "sync execute — blocks until done"
+            ? "sync — submit + poll run status for live progress"
             : "async chat — polls and shows live progress"}
           ).
         </p>
