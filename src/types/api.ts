@@ -223,6 +223,8 @@ export type RegisterToolRequest = {
   executionMode: "SYNC" | "ASYNC";
   inputSchema: ToolSchemaDto;
   outputSchema: ToolSchemaDto;
+  /** Relative URL the executor calls to invoke the tool, e.g. /agent/tools/data_acquisition/1.1.0/execute */
+  endpointUrl?: string;
   enabled: boolean;
 };
 

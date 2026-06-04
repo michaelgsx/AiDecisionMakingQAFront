@@ -29,8 +29,12 @@ const MOCK_WORKFLOW_MERMAID = `flowchart TD
   classDef wf_completed fill:#d1e7dd,stroke:#198754,color:#0f5132
   class s1,s2,s3 wf_completed`;
 
-/** Max time to poll async chat / run status before giving up (30s). */
-export const FRONTEND_POLL_TIMEOUT_MS = 30_000;
+/**
+ * Max time to poll async chat / run status before giving up. App Service B1 cold starts and
+ * uncached LLM planning can push a single run past 45s, so allow generous headroom (120s)
+ * to avoid surfacing a false "timed out" / "Load failed" while the backend is still working.
+ */
+export const FRONTEND_POLL_TIMEOUT_MS = 120_000;
 
 export type AgentConnectivity = {
   state: "mock" | "ok" | "unreachable" | "error" | "no-url";
