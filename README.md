@@ -8,6 +8,30 @@ Backend: **[AiDecisionMakingAgenticAI](https://github.com/michaelgsx/AiDecisionM
 
 ## Screenshots
 
+### Navigation
+
+Three tabs: **Chat** (orchestrator Q&A), **Evaluation** (human review queue), and **Tools** (registered tool registry).
+
+![Navigation tabs — Chat / Evaluation / Tools](docs/screenshots/nav-tabs.png)
+
+### Chat modes
+
+Toggle between **Sync chat** (submit + poll the run to completion) and **Async chat** (submit + poll the async-chat status). Both stream live progress (planning → executing each tool → composing the answer).
+
+![Chat mode toggle — Sync / Async](docs/screenshots/chat-mode-toggle.png)
+
+### Ask a question
+
+Submit a natural-language question; the orchestrator plans a DAG, runs the tools, and returns the answer (here a `user-001` lookup resolved via `data_acquisition` → `llm_answer`).
+
+![Chat answer — user-001 lookup](docs/screenshots/chat-answer.png)
+
+### Workflow output
+
+Per-step status, the **Workflow DAG** (Mermaid, collapsible), the planned workflow JSON, and 👍 / 👎 feedback on the answer.
+
+![Workflow output — steps, DAG, feedback](docs/screenshots/workflow-output.png)
+
 ### Chat tab
 
 Orchestrator Q&A: submit a question, poll until the DAG completes, thumbs feedback on answers.
