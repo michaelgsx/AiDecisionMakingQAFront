@@ -19,6 +19,7 @@ import type {
   WorkflowSnapshot,
 } from "../types/api";
 import { buildWorkflowSnapshot } from "../utils/workflowSnapshot";
+import { progressLabel } from "../utils/progress";
 
 function firstInputRequired(tick: RunStatusResponse): HumanApprovalDto | null {
   const async = tick.pendingAsync?.find((p) => p.asyncKind === "INPUT_REQUIRED");
@@ -302,6 +303,14 @@ export function ChatPage() {
 
   const showLiveWorkflow = activeWorkflow && (loading || pendingApproval);
 
+  const progress = progressLabel({
+    chatMode,
+    runStatus,
+    statusDetail,
+    steps: activeWorkflow?.steps,
+    waitingForApproval: Boolean(pendingApproval),
+  });
+
   return (
     <div className="chat-page">
       <div className="chat-toolbar">
@@ -309,7 +318,7 @@ export function ChatPage() {
           Questions go to the <strong>orchestrator</strong> (
           {chatMode === "sync"
             ? "sync execute — blocks until done"
-            : "async chat — poll up to 30s for progress"}
+            : "async chat — polls and shows live progress"}
           ).
         </p>
         <div className="chat-toolbar-actions">
@@ -338,11 +347,7 @@ export function ChatPage() {
       </div>
 
       {runStatus && (loading || pendingApproval) && (
-        <p className="chat-status">
-          {chatMode === "async" && statusDetail
-            ? `Async: ${statusDetail}`
-            : `Orchestrator: ${pendingApproval ? "waiting for your approval" : runStatus}`}
-        </p>
+        <p className="chat-status">{progress}</p>
       )}
 
       {showLiveWorkflow && (
@@ -381,11 +386,7 @@ export function ChatPage() {
                 <span className="dot" />
                 <span className="dot" />
               </div>
-              <p className="chat-loading-label">
-                {chatMode === "async" && statusDetail
-                  ? statusDetail
-                  : "Planning and executing workflow…"}
-              </p>
+              <p className="chat-loading-label">{progress}</p>
             </div>
           </div>
         )}
