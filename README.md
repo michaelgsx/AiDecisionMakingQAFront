@@ -4,6 +4,8 @@ ChatGPT-style **risk control Q&A** UI for the agentic orchestrator. Built with *
 
 Backend: **[AiDecisionMakingAgenticAI](https://github.com/michaelgsx/AiDecisionMakingAgenticAI)** (Spring Boot, port **8788**).
 
+**🔗 Live demo:** https://yellow-island-0fefe051e.7.azurestaticapps.net/
+
 > **Synthetic data:** Example questions, demo answers, and evaluation rows are AI-generated for illustration only.
 
 ## Screenshots
