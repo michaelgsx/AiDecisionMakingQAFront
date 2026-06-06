@@ -761,11 +761,117 @@ main {
 .evaluation-meta {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 0.75rem;
   font-size: 0.8rem;
   color: var(--muted);
+}
+
+.evaluation-meta-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.evaluation-run-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.evaluation-step-details {
+  margin: 0;
+  padding: 0 1rem 1rem;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: var(--surface);
+}
+
+.evaluation-run-group .evaluation-card {
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.evaluation-run-group .evaluation-card:only-child,
+.evaluation-run-group:not(:has(.evaluation-step-details[open])) .evaluation-card:last-child {
+  border-radius: var(--radius);
+}
+
+.evaluation-run-group:has(.evaluation-step-details) .evaluation-card {
+  border-bottom: none;
+}
+
+.evaluation-step-details summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0.65rem 0;
+  user-select: none;
+}
+
+.evaluation-step-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.evaluation-step-details summary::before {
+  content: "▸ ";
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.evaluation-step-details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.evaluation-step-pending {
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.evaluation-step-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.evaluation-step-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  background: var(--bg, rgba(0, 0, 0, 0.15));
+}
+
+.evaluation-step-card .evaluation-answer {
+  max-height: 8rem;
+  font-size: 0.85rem;
+}
+
+.evaluation-step-tag {
+  font-size: 0.75rem;
+  font-family: ui-monospace, monospace;
+  color: var(--text);
+}
+
+.evaluation-confidence {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.badge-scope-run {
+  background: rgba(180, 140, 255, 0.15);
+  color: #b48cff;
+}
+
+.evaluation-card-run-fallback {
+  border-radius: var(--radius) var(--radius) 0 0;
 }
 
 .badge {

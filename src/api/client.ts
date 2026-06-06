@@ -437,12 +437,27 @@ export async function listEvaluations(
   const root = baseUrl();
   if (!root && useMock()) {
     await delay(300);
+    const runId = crypto.randomUUID();
     const mock: EvaluationDto[] = [
       {
         evaluationId: crypto.randomUUID(),
-        runId: crypto.randomUUID(),
+        runId,
+        evaluationScope: "RUN",
+        confidence: 0.82,
         question: "Should we freeze this withdrawal?",
         answer: "(Mock) Similar cases suggest freeze pending review.",
+        reviewStatus: "PENDING",
+        createdAt: new Date().toISOString(),
+      },
+      {
+        evaluationId: crypto.randomUUID(),
+        runId,
+        evaluationScope: "STEP",
+        stepKey: "s1",
+        toolName: "data_acquisition",
+        confidence: 0.76,
+        question: "Should we freeze this withdrawal?",
+        answer: '[s1 / data_acquisition]\n{"rowCount": 2, "confidence": 0.76}',
         reviewStatus: "PENDING",
         createdAt: new Date().toISOString(),
       },
@@ -470,6 +485,8 @@ export async function submitEvaluationReview(
     return {
       evaluationId,
       runId: crypto.randomUUID(),
+      evaluationScope: "RUN",
+      confidence: 0.5,
       question: "mock",
       answer: "mock",
       reviewStatus: body.decision === "accept" ? "ACCEPTED" : "REJECTED",

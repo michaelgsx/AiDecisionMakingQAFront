@@ -175,6 +175,13 @@ export type EvaluationStatusFilter = "pending" | "accepted" | "rejected" | "all"
 export type EvaluationDto = {
   evaluationId: string;
   runId: string;
+  /** RUN = end-to-end Q&A; STEP = single workflow step. */
+  evaluationScope: "RUN" | "STEP";
+  stepKey?: string;
+  stepId?: string;
+  toolName?: string;
+  /** Model confidence in [0, 1]. */
+  confidence: number;
   question: string;
   answer: string;
   reviewStatus: "PENDING" | "ACCEPTED" | "REJECTED";
