@@ -68,6 +68,7 @@ export function ChatPage() {
   const [pendingApproval, setPendingApproval] = useState<HumanApprovalDto | null>(null);
   const [humanLoading, setHumanLoading] = useState(false);
   const [feedbackLoadingId, setFeedbackLoadingId] = useState<string | null>(null);
+  const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeWorkflow, setActiveWorkflow] = useState<WorkflowSnapshot | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -240,8 +241,9 @@ export function ChatPage() {
     if (!conversationId || feedbackLoadingId) return;
     setFeedbackLoadingId(messageId);
     setError(null);
+    setFeedbackNotice(null);
     try {
-      await submitFeedback({
+      const res = await submitFeedback({
         runId: messageId,
         messageId,
         conversationId,
@@ -250,6 +252,9 @@ export function ChatPage() {
       setMessages((m) =>
         m.map((msg) => (msg.id === messageId ? { ...msg, feedback: rating } : msg)),
       );
+      if (res.message) {
+        setFeedbackNotice(res.message);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Feedback failed");
     } finally {
@@ -416,6 +421,7 @@ export function ChatPage() {
       </div>
 
       {error && <p className="chat-error">{error}</p>}
+      {feedbackNotice && !error && <p className="chat-feedback-notice">{feedbackNotice}</p>}
 
       <div className="composer">
         <textarea

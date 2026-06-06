@@ -13,7 +13,7 @@ export function FeedbackBar({ selected, disabled, onRated }: Props) {
         type="button"
         className={`feedback-btn ${selected === "up" ? "active up" : ""}`}
         disabled={disabled}
-        title="Helpful"
+        title="Helpful — save this workflow for similar questions"
         aria-pressed={selected === "up"}
         onClick={() => onRated("up")}
       >

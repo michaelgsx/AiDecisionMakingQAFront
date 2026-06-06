@@ -610,6 +610,12 @@ main {
   margin: 0 0 0.5rem;
 }
 
+.chat-feedback-notice {
+  color: var(--success, #3dd68c);
+  font-size: 0.85rem;
+  margin: 0 0 0.5rem;
+}
+
 .composer {
   display: flex;
   gap: 0.5rem;

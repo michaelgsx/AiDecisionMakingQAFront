@@ -595,7 +595,13 @@ export async function submitFeedback(body: FeedbackRequest): Promise<FeedbackRes
   const root = baseUrl();
   if (!root && useMock()) {
     await delay(200);
-    return { ok: true, feedbackId: crypto.randomUUID(), message: "(Mock) Feedback recorded" };
+    return {
+      ok: true,
+      feedbackId: crypto.randomUUID(),
+      message: body.rating === "up"
+        ? "(Mock) Feedback recorded. Workflow saved for similar questions."
+        : "(Mock) Feedback recorded",
+    };
   }
   if (!root) throw new Error("Set VITE_AGENT_API_BASE_URL or VITE_USE_MOCK=true");
 
