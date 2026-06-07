@@ -71,7 +71,7 @@ export function ChatPage() {
   const [chatMode, setChatMode] = useState<ChatMode>("sync");
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [messages, setMessages] = useState<Msg[]>([]);
-  const [input, setInput] = useState(DEFAULT_QUESTION);
+  const [input, setInput] = useState<string>(DEFAULT_QUESTION);
   const [loading, setLoading] = useState(false);
   const [runStatus, setRunStatus] = useState<string | null>(null);
   const [statusDetail, setStatusDetail] = useState<string | null>(null);
