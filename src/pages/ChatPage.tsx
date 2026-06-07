@@ -158,7 +158,6 @@ export function ChatPage() {
           question: text,
           conversationId,
         });
-        setConversationId(conversationId ?? submitted.requestId);
         setRunStatus(submitted.status);
         setStatusDetail("planning");
 
@@ -213,7 +212,6 @@ export function ChatPage() {
       // (planning → executing/{step}/{tool} → llm-answering → done) streams live,
       // instead of blocking on /agent/execute where only the optimistic status shows.
       const submitted = await submitQuestion({ question: text, conversationId });
-      setConversationId(conversationId ?? submitted.runId);
       setActiveRunId(submitted.runId);
       setRunStatus(submitted.status);
       void loadRunWorkflow(submitted.runId);
@@ -256,7 +254,7 @@ export function ChatPage() {
   };
 
   const onFeedback = async (messageId: string, rating: "up" | "down") => {
-    if (!conversationId || feedbackLoadingId) return;
+    if (feedbackLoadingId) return;
     setFeedbackLoadingId(messageId);
     setError(null);
     setFeedbackNotice(null);
@@ -264,7 +262,7 @@ export function ChatPage() {
       const res = await submitFeedback({
         runId: messageId,
         messageId,
-        conversationId,
+        ...(conversationId ? { conversationId } : {}),
         rating,
       });
       setMessages((m) =>
