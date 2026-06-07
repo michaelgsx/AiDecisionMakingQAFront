@@ -632,18 +632,42 @@ main {
   min-width: 0;
 }
 
-.composer-sample-select {
+.composer-samples {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.composer-sample-btn {
   font: inherit;
-  font-size: 0.85rem;
-  padding: 0.4rem 0.65rem;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  text-align: left;
+  padding: 0.45rem 0.65rem;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-muted, var(--text));
-  max-width: 100%;
+  cursor: pointer;
 }
 
-.composer-sample-select:focus {
+.composer-sample-btn:hover:not(:disabled) {
+  border-color: var(--accent-dim, #3d6f9a);
+  color: var(--text);
+}
+
+.composer-sample-btn.active {
+  border-color: var(--accent);
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+
+.composer-sample-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.composer-sample-btn:focus-visible {
   outline: 2px solid var(--accent-dim, #3d6f9a);
   outline-offset: 1px;
 }

@@ -55,23 +55,15 @@ function assistantMessage(
 type ChatMode = "sync" | "async";
 
 const SAMPLE_QUESTIONS = [
-  {
-    label: "User profile lookup (user-001)",
-    value: "show me the information of user 'user-001'",
-  },
-  {
-    label: "Distinct user IDs — count and list",
-    value: "how many distinct user ids do we have in total? and list them please.",
-  },
+  "show me the information of user 'user-001'",
+  "how many distinct user ids do we have in total? and list them please.",
 ] as const;
-
-const DEFAULT_QUESTION = SAMPLE_QUESTIONS[0].value;
 
 export function ChatPage() {
   const [chatMode, setChatMode] = useState<ChatMode>("sync");
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [messages, setMessages] = useState<Msg[]>([]);
-  const [input, setInput] = useState<string>(DEFAULT_QUESTION);
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [runStatus, setRunStatus] = useState<string | null>(null);
   const [statusDetail, setStatusDetail] = useState<string | null>(null);
@@ -326,7 +318,7 @@ export function ChatPage() {
     setConversationId(undefined);
     setMessages([]);
     setError(null);
-    setInput(DEFAULT_QUESTION);
+    setInput("");
     setRunStatus(null);
     setStatusDetail(null);
     setPendingApproval(null);
@@ -436,26 +428,23 @@ export function ChatPage() {
 
       <div className="composer">
         <div className="composer-input">
-          <select
-              className="composer-sample-select"
-              value=""
-              disabled={loading}
-              aria-label="Insert a sample question"
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value) {
-                  setInput(value);
+          <div className="composer-samples" role="group" aria-label="Sample questions">
+            {SAMPLE_QUESTIONS.map((question) => (
+              <button
+                key={question}
+                type="button"
+                className={`composer-sample-btn${input === question ? " active" : ""}`}
+                disabled={loading}
+                aria-pressed={input === question}
+                onClick={() => {
+                  setInput(question);
                   textareaRef.current?.focus();
-                }
-              }}
-            >
-              <option value="">Sample questions…</option>
-              {SAMPLE_QUESTIONS.map((q) => (
-                <option key={q.value} value={q.value}>
-                  {q.label}
-                </option>
-              ))}
-            </select>
+                }}
+              >
+                {question}
+              </button>
+            ))}
+          </div>
           <textarea
           ref={textareaRef}
           value={input}
