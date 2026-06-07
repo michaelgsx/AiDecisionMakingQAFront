@@ -461,6 +461,94 @@ main {
   margin: 0 0 0.5rem;
 }
 
+.chat-empty-hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.composer-shell {
+  position: relative;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.composer-samples-popover {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+  padding: 0.65rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(6px);
+  transition:
+    opacity 0.15s ease,
+    visibility 0.15s ease,
+    transform 0.15s ease;
+}
+
+.composer-shell:hover .composer-samples-popover,
+.composer-shell:focus-within .composer-samples-popover {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.composer-samples-label {
+  margin: 0 0 0.15rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.composer-sample-btn {
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  text-align: left;
+  padding: 0.45rem 0.65rem;
+  border-radius: calc(var(--radius) - 2px);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, var(--text) 12%);
+  color: var(--text-muted, var(--text));
+  cursor: pointer;
+}
+
+.composer-sample-btn:hover:not(:disabled) {
+  border-color: var(--accent-dim, #3d6f9a);
+  color: var(--text);
+}
+
+.composer-sample-btn.active {
+  border-color: var(--accent);
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+
+.composer-sample-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.composer-sample-btn:focus-visible {
+  outline: 2px solid var(--accent-dim, #3d6f9a);
+  outline-offset: 1px;
+}
+
 .chat-row {
   display: flex;
   gap: 0.75rem;
@@ -620,60 +708,6 @@ main {
   display: flex;
   gap: 0.5rem;
   align-items: flex-end;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--border);
-}
-
-.composer-input {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  min-width: 0;
-}
-
-.composer-samples {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.composer-sample-btn {
-  font: inherit;
-  font-size: 0.82rem;
-  line-height: 1.35;
-  text-align: left;
-  padding: 0.45rem 0.65rem;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-muted, var(--text));
-  cursor: pointer;
-}
-
-.composer-sample-btn:hover:not(:disabled) {
-  border-color: var(--accent-dim, #3d6f9a);
-  color: var(--text);
-}
-
-.composer-sample-btn.active {
-  border-color: var(--accent);
-  color: var(--text);
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-}
-
-.composer-sample-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.composer-sample-btn:focus-visible {
-  outline: 2px solid var(--accent-dim, #3d6f9a);
-  outline-offset: 1px;
-}
-
-.composer-input textarea {
-  width: 100%;
 }
 
 .composer textarea {

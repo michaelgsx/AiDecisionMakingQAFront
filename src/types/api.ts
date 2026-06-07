@@ -4,6 +4,10 @@ export type AskRequest = {
   userId?: string;
 };
 
+export type SampleQuestionsResponse = {
+  questions: string[];
+};
+
 export type AskResponse = {
   runId: string;
   status: string;

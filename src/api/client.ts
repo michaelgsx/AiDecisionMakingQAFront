@@ -16,6 +16,7 @@ import type {
   AsyncToolPollRequest,
   RegisterToolRequest,
   RunStatusResponse,
+  SampleQuestionsResponse,
   ToolRegistrationResponse,
   WorkflowDiagramResponse,
 } from "../types/api";
@@ -613,6 +614,22 @@ export async function submitFeedback(body: FeedbackRequest): Promise<FeedbackRes
   const data = await parseJson<FeedbackResponse & { message?: string; error?: string }>(res);
   if (!res.ok) throw new Error(data.message ?? data.error ?? `HTTP ${res.status}`);
   return data;
+}
+
+export async function getSampleQuestions(): Promise<string[]> {
+  const root = baseUrl();
+  if (!root && useMock()) {
+    return [
+      "show me the information of user 'user-001'",
+      "how many distinct user ids do we have in total? and list them please.",
+    ];
+  }
+  if (!root) return [];
+
+  const res = await fetch(`${root}/agent/sample-questions`, { headers: opsHeaders() });
+  const data = await parseJson<SampleQuestionsResponse & { message?: string; error?: string }>(res);
+  if (!res.ok) throw new Error(data.message ?? data.error ?? `HTTP ${res.status}`);
+  return data.questions ?? [];
 }
 
 function delay(ms: number) {

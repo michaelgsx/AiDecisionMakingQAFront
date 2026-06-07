@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   asyncChatSubmit,
   getRunStatus,
+  getSampleQuestions,
   getWorkflowDiagram,
   pollAsyncChatUntilComplete,
   pollUntilComplete,
@@ -54,15 +55,11 @@ function assistantMessage(
 
 type ChatMode = "sync" | "async";
 
-const SAMPLE_QUESTIONS = [
-  "show me the information of user 'user-001'",
-  "how many distinct user ids do we have in total? and list them please.",
-] as const;
-
 export function ChatPage() {
   const [chatMode, setChatMode] = useState<ChatMode>("sync");
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [messages, setMessages] = useState<Msg[]>([]);
+  const [sampleQuestions, setSampleQuestions] = useState<string[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [runStatus, setRunStatus] = useState<string | null>(null);
@@ -80,6 +77,24 @@ export function ChatPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading, runStatus, statusDetail, activeWorkflow]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getSampleQuestions()
+      .then((questions) => {
+        if (!cancelled) {
+          setSampleQuestions(questions);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSampleQuestions([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const applyWorkflowTick = (
     runId: string,
@@ -396,7 +411,7 @@ export function ChatPage() {
         {messages.length === 0 && (
           <div className="chat-empty">
             <h2>Risk control assistant</h2>
-            <p>Example: &quot;What similar cases support freezing this withdrawal?&quot;</p>
+            <p className="chat-empty-hint">Hover the message box below for sample questions.</p>
           </div>
         )}
         {messages.map((m) => (
@@ -426,16 +441,18 @@ export function ChatPage() {
       {error && <p className="chat-error">{error}</p>}
       {feedbackNotice && !error && <p className="chat-feedback-notice">{feedbackNotice}</p>}
 
-      <div className="composer">
-        <div className="composer-input">
-          <div className="composer-samples" role="group" aria-label="Sample questions">
-            {SAMPLE_QUESTIONS.map((question) => (
+      <div className="composer-shell">
+        {sampleQuestions.length > 0 && (
+          <div className="composer-samples-popover" role="group" aria-label="Sample questions">
+            <p className="composer-samples-label">Sample questions</p>
+            {sampleQuestions.map((question) => (
               <button
                 key={question}
                 type="button"
                 className={`composer-sample-btn${input === question ? " active" : ""}`}
                 disabled={loading}
                 aria-pressed={input === question}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                   setInput(question);
                   textareaRef.current?.focus();
@@ -445,20 +462,22 @@ export function ChatPage() {
               </button>
             ))}
           </div>
+        )}
+        <div className="composer">
           <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder="Message the risk assistant…"
-          rows={3}
-          disabled={loading}
-          aria-label="Your message"
-        />
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder="Message the risk assistant…"
+            rows={3}
+            disabled={loading}
+            aria-label="Your message"
+          />
+          <button type="button" className="btn-send" onClick={() => void send()} disabled={loading || !input.trim()}>
+            Send
+          </button>
         </div>
-        <button type="button" className="btn-send" onClick={() => void send()} disabled={loading || !input.trim()}>
-          Send
-        </button>
       </div>
     </div>
   );
