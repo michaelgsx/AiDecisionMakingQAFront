@@ -624,6 +624,34 @@ main {
   border-top: 1px solid var(--border);
 }
 
+.composer-input {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.composer-sample-select {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted, var(--text));
+  max-width: 100%;
+}
+
+.composer-sample-select:focus {
+  outline: 2px solid var(--accent-dim, #3d6f9a);
+  outline-offset: 1px;
+}
+
+.composer-input textarea {
+  width: 100%;
+}
+
 .composer textarea {
   flex: 1;
   resize: none;

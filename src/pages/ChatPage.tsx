@@ -54,7 +54,18 @@ function assistantMessage(
 
 type ChatMode = "sync" | "async";
 
-const DEFAULT_QUESTION = "show me the information of user 'user-001'";
+const SAMPLE_QUESTIONS = [
+  {
+    label: "User profile lookup (user-001)",
+    value: "show me the information of user 'user-001'",
+  },
+  {
+    label: "Distinct user IDs — count and list",
+    value: "how many distinct user ids do we have in total? and list them please.",
+  },
+] as const;
+
+const DEFAULT_QUESTION = SAMPLE_QUESTIONS[0].value;
 
 export function ChatPage() {
   const [chatMode, setChatMode] = useState<ChatMode>("sync");
@@ -424,7 +435,28 @@ export function ChatPage() {
       {feedbackNotice && !error && <p className="chat-feedback-notice">{feedbackNotice}</p>}
 
       <div className="composer">
-        <textarea
+        <div className="composer-input">
+          <select
+              className="composer-sample-select"
+              value=""
+              disabled={loading}
+              aria-label="Insert a sample question"
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value) {
+                  setInput(value);
+                  textareaRef.current?.focus();
+                }
+              }}
+            >
+              <option value="">Sample questions…</option>
+              {SAMPLE_QUESTIONS.map((q) => (
+                <option key={q.value} value={q.value}>
+                  {q.label}
+                </option>
+              ))}
+            </select>
+          <textarea
           ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -434,6 +466,7 @@ export function ChatPage() {
           disabled={loading}
           aria-label="Your message"
         />
+        </div>
         <button type="button" className="btn-send" onClick={() => void send()} disabled={loading || !input.trim()}>
           Send
         </button>
