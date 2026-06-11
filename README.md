@@ -6,9 +6,9 @@ Backend: **[AiDecisionMakingAgenticAI](https://github.com/michaelgsx/AiDecisionM
 
 **🔗 Live demo:** https://yellow-island-0fefe051e.7.azurestaticapps.net/
 
-**🎬 Demo video:** **[▶ Play in browser](https://yellow-island-0fefe051e.7.azurestaticapps.net/demo.html)** (hosted on this SWA — GitHub README cannot embed a native player)
+**🎬 Demo video:** **[▶ Watch on YouTube](https://www.youtube.com/watch?v=AGwshtB56CA)**
 
-[![Demo walkthrough](docs/screenshots/demo-poster.jpg)](https://yellow-island-0fefe051e.7.azurestaticapps.net/demo.html)
+[![Demo walkthrough — click to play on YouTube](https://img.youtube.com/vi/AGwshtB56CA/hqdefault.jpg)](https://www.youtube.com/watch?v=AGwshtB56CA)
 
 > **Synthetic data:** Example questions, demo answers, and evaluation rows are AI-generated for illustration only.
 
